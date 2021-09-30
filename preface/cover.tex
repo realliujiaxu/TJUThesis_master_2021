@@ -35,17 +35,17 @@
 % !Mode:: "TeX:UTF-8"
 
 
-\ctitle{基于贯口的传统相声研究}  %封面用论文标题，自己可手动断行
-\etitle{Research on traditional cross talk based on Guankou}
-\caffil{天津大学电气自动化与信息工程学院} %学院名称
+\ctitle{属性一致和基于联合注意力机制的生成式对抗网络}  %封面用论文标题，自己可手动断行
+\etitle{Attribute Consistent and Joint Attention Based Generative Adversarial Networks}
+\caffil{天津大学智能与计算学部} %学院名称
 \cfirstsubjecttitle{\textbf{一级学科}}
-\cfirstsubject{信息与通信工程}   %专业
+\cfirstsubject{计算机科学与技术}   %专业
 \csubjecttitle{\textbf{研究方向}}
-\csubject{信号与信息处理}   %专业
+\csubject{计算机技术}   %专业
 \cauthortitle{\textbf{作者姓名}}     % 学位
-\cauthor{WH}   %学生姓名
+\cauthor{刘家旭}   %学生姓名
 \csupervisortitle{\textbf{指导教师}}
-\csupervisor{**~~副教授} %导师姓名
+\csupervisor{朱鹏飞~~副教授} %导师姓名
 
 \teachertable{
 \begin{table}[h]
@@ -53,7 +53,7 @@
 \song\xiaosi{
 \begin{tabularx}{\textwidth}{|*{4}{>{\centering\arraybackslash}X|}}
 \hline
-\textbf{答辩日期}                & \multicolumn{3}{c|}{20   年   月   日}       \\ \hline
+\textbf{答辩日期}                & \multicolumn{3}{c|}{2021 年   月   日}       \\ \hline
 \textbf{答辩委员会}               & \textbf{姓名} & \textbf{职称} & \textbf{工作单位} \\ \hline
 \textbf{主席}                  &             &             &               \\ \hline
 \multirow{2}{*}{\textbf{委员}} &             &             &               \\ \cline{2-4} 
@@ -78,23 +78,31 @@
 
 \cdate{\CJKdigits{\the\year} 年\CJKnumber{\the\month} 月 \CJKnumber{\the\day} 日}
 % 如需改成二零一二年四月二十五日的格式，可以直接输入，即如下所示
-\cdate{二零二一年九月}
+\cdate{二零二一年十月}
 % \cdate{\the\year 年\the\month 月 \the\day 日} % 此日期显示格式为阿拉伯数字 如2012年4月25日
 \cabstract{
 
-八扇屏是传统相声的一部分。八扇屏是传统相声的一部分。八扇屏是传统相声的一部分。八扇屏是传统相声的一部分。八扇屏是传统相声的一部分。
+生成式对抗网络目前广泛用于图像生成、图像变换等领域。
+
+在图像生成方面，生成式对抗网络 (GAN) 可以生成具有不同属性的逼真图像。最近的研究表明，在预训练模型的隐空间中进行特定的向量运算，我们可以认为控制生成图像的每个属性。现有的方法是通过在隐空间搜索相应的语义方向来实现这一点，但由于生成模型是在没有属性标签监督的情况下训练的，因此这些方法得到的结果存在语义耦合。为了解决这一问题并更为准确地控制生成图像的属性，我们提出了属性一致生成对抗网络(Attribute Consistent Generative Adversarial Networks)，简称ACGAN，一种基于属性训练的，同时可控语义方向被投影到正交空间的生成模型。具体来说，我们首先设计了一种属性量化方法来获得连续标签。应用他们训练的属性回归器来约束输入属性代码和生成结果之间的属性一致性。我们将潜在代码分解为内容代码和属性代码。属性代码位于正交空间中，从而在理论上保证属性之间的解耦。
+
+在图像变换方面，从临床诊断到公共安全，许多实际场景都需要多模态图像。生成式对抗网络刚刚被应用到多模态图像转换，就展现出了惊人的性能，但由于难以对多个输入之间的相关性进行建模，因此多模态图像翻译仍然具有挑战性。在本文中，我们提出了一种联合注意力生成式对抗网络 (Joint Attetion Generative Adversarial Networks, JA-GAN) 框架，通过可用的多模态图像生成缺失的模态图像。为了更有效地提取所需模态对应的多模态表示，我们使用自表示网络来驱动注意力模块。提取出的多模态特征可以与目标模态保持通道级的一致性，极大地提高了多模态图像变换性能。
 
 }
 
-\ckeywords{关键词，关键词，关键词，关键词，关键词}
+\ckeywords{生成式对抗网络，图像生成，多模态图像变换，语义耦合}
 
 \eabstract{
 
-The eight screens are part of the traditional comic dialogue. The eight screens are part of the traditional comic dialogue. The eight screens are part of the traditional comic dialogue. The eight screens are part of the traditional comic dialogue. 
+Generative Adversarial Networks (GANs) are currently widely used in image generation, image translation and other fields.
+
+Recent research suggests that Generative Adversarial Networks can produce realistic images with different attributes. To precisely control each attribute of generated images, current methods search the semantic directions in the latent space of a pretrained model. Since the generative models are trained without the supervision of attribute labels, these methods yield semantic entanglement. To tackle these concerns, we propose Attribute Consistent Generative Adversarial Nets, termed ACGAN, to train an attribute-based generative model while projecting the controllable semantic directions to an orthogonal space. Specifically, we first design an attribute quantification method to obtain the continuous labels. An attribute regressor trained by them is applied to constrain the attribute consistency between the input attribute code and the generated results. We decompose the latent code into the content code and the attribute code. The attribute code lies in an orthogonal space, so as to theoretically ensure disentanglement between attributes.
+
+Multimodal images are required in many practical scenarios, ranging from clinical diagnosis to public security. Data missing often leads to decision bias. Although image translation achieved great progress, multimodal image translation is still challenging due to the difficulty in modeling correlations between multiple inputs. In this paper, we novelly proposed a joint attention GAN (MA-GAN) framework to generate the missing image modality through multimodal available images. To effectively extract the multimodal representation specific to desired modality, we use a self-representation network to drive a inter-modal attention module. The extracted multimodal features can maintain kernel-level consistency with the target modality, which greatly improved the image translation performance.
 
 }
 
-\ekeywords{Keyword, Keyword, Keyword, Keyword, Keyword}
+\ekeywords{Generative Adversarial Networks, Image Generation, Multi-Modal Image Translation, Semantic Entanglement}
 
 \makecover
 \clearpage
