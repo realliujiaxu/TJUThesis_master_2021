@@ -1,218 +1,302 @@
-\chapter{基于生成式对抗网络的多模态图像转换}
+\chapter{基于生成式对抗网络的图像编辑}
 
-多模态图像转换任务可以看作一类特殊的图像转换任务。近些年来，在研究人员的持续努力下，图像转换取得了很大进展，但现有的工作难以对多个输入之间的相关性进行建模，因此多模态图像转换仍非常具有挑战性。在本文中，我们提出了一种新颖的联合注意力GAN (Joint Attention Generative Adversarial Networks，JAGAN) 框架，通过可用的多模态图像生成缺失的模态图像。为了更有效地提取与目标模态一致（相关）的多模态表示，我们使用自表示网络来驱动我们提出的联合注意力机制。JAGAN提取的多模态特征可以与目标模态保持通道级的一致性，极大地提高了图像转换性能。通过与现有方法在多模态图像转换任务上定量和定性比较，证明了我们方法的能够生成更精准的缺失模态图像。
+最近的研究表明，生成对抗网络(GANs) 可以生成具有不同属性的逼真图像。为了精确控制生成图像的每个属性，当前的方法在预训练模型的隐空间中搜索语义方向。由于生成模型是在没有属性标签监督的情况下训练的，因此这些方法会产生语义耦合。为了解决这些问题，我们提出了属性一致生成对抗网络，称为 ACGAN，以训练基于属性的生成模型，同时将可控语义方向投影到正交空间。具体来说，我们首先设计了一种属性量化方法来获得连续标签。应用他们训练的属性回归器来约束输入属性变量和生成结果之间的属性一致性。我们将隐变量分解为内容变量和属性变量。属性变量位于正交空间中，从而在理论上保证属性之间的解耦。实验结果表明，所提出的方法在生成具有多个可控属性的逼真图像方面具有优越性。
 
 \section{引言}
 
-图像处理、计算机视觉和计算机图形学等越来越多的应用开始依赖于多模态图像，如在精准医学领域，脑部核磁共振可以得到T1、T1Gd、T2和T2-FLAIR四种模态~\cite{drevelegas2011imaging}，医生希望尽可能结合完整的多模态医学图像来做出更精确的诊断，但往往受限于实际条件（受限的医疗条件、扫描时间不足以及成本/支出/资源等限制），在多模态数据获取过程中可能出现系统误差，甚至部分模态的缺失~\cite{tanenbaum2017synthetic}等情况。这些不可用的模态图像可能会导致医生决策出现偏差。
+生成式对抗网络~\cite{GANs}以对抗方式训练生成器和鉴别器，从而对目标数据分布建模。当模型收敛时，生成器将从隐空间采样的隐变量映射到图像空间。最新的深度生成模型在生成逼真的图像方面取得了巨大进步，这些图像甚至与现实世界的照片无法区分。然而，GANs模型本身无法编辑生成图像的语义属性，比如以操纵人像的年龄或场景图片的天气。
 
-由于我们在实践中经常会遇到低质量甚至缺失的模态图像，如何利用已有的、完整的模态图像数据对不可用的模态进行填补，已成为计算机视觉和图像处理中的一个重要研究课题。除了可用的图像数据外，医生还可以使用填补的缺失模态数据辅助决策。
+图像编辑可用于图像增强、动画设计等专业领域。目前基于GANs的图像编辑方法可以分为两类：图像空间编辑方法和隐空间编辑方法。图像空间编辑方法\cite{cyclegan,i2i0,i2i1,i2i2} 将一张图像从源域直接转换到目标域。这些方法必须学习大量的冗余模型，因为每两个域之间的转换需要一个模型。这对于多属性编辑任务来说是灾难性的。
+隐空间编辑方法侧重于在预训练的GANs的隐空间中搜索与语义相关的方向。这类方法按照监督信息可以进一步分为：无监督方法~\cite{icml2020,harkonen2020ganspace}、自监督方法~\cite{steer,variation} 和监督方法~\cite{interfacegan,iclr2021}。这类方法在做属性编辑时存在语义耦合的问题，改变一个属性通常伴随着其他属性的改变。语义耦合的根本原因在于，隐空间编辑方法所使用的预训练GANs在训练时没有受到属性的约束，其隐空间天然存在属性耦合。
 
-对多模态图像数据中缺失的模态进行填补可以看作是一个图像转换问题。图像转换指将图像从一个图像域转换到另一个图像域，类似的任务包括风格转移、分割、去模糊、超分辨率等。不同图像域指的是光照条件、面部表情、传感器等之间的各种成像差异。研究人员为研究有效的图像转换算法投入了大量精力，并在基于生成对抗网络的方法上取得了重大进展，例如Pix2Pix~\cite{pix2pix}、CycleGAN~\cite{cyclegan}和StarGAN~\cite{stargan}等。然而，这些方法仅适用于单一模态输入，在模型输入与网络设计上并未考虑多模态场景下其他可用模态中包含的有效信息。 CollaGAN~\cite{collagan} 是少数为多模态设计的图像转换模型之一，Dongwook Lee等人针对多模态场景，在CycleGAN的基础上提出多重循环一致性损失，从而实现了从任意多模态输入生成目标模态图像的功能。
+为了从根本上解决这个问题，我们提出了一种输入属性与生成图像属性一致的生成式对抗网络，简称为属性一致的生成式对抗网络（Attribute Consistent Generative Adversarial Networks， ACGAN），用于图像属性编辑。
+与现有方法不同，我们将隐空间分解为内容空间和属性空间。
+输入的隐变量由分别从内容空间（服从高斯分布）和属性空间（服从均匀分布）中采样的内容变量和属性变量组成。由于隐空间编辑方法发现的属性是耦合的，我们建议将属性空间投影到正交空间，以便将每个语义方向与其他方向分开。为了将可控语义方向投影到正交属性空间，我们进一步提出了一个属性一致损失，它对生成器施加了一个属性回归器，并约束了生成图像的预测属性与输入属性变量之间的连续一致性。
+然而，据我们所知，目前只有一个数据集 \cite{scenedataset} 包含连续的属性标签，而大多数图像属性数据集~\cite{celeba,place,sun} 只包含二值标签。为了将我们的方法扩展到所有属性数据集，我们进一步提出了一种属性量化策略，将二值属性标签量化为连续值。
 
-CollaGAN的缺点在于没有针对跨模态一致性和模态间互补性进行约束，这使得其不能充分利用输入模型的信息。为了有效地提取目标模态（缺失模态）的多模态表示，充分利用模态间一致性和互补性，我们提出基于联合注意力机制机制的生成对抗网络，用于多模态图像转换。我们从一致性和互补性两个方面约束JAGAN的训练：
-对于一致性，我们引入自表示网络，结合我们提出的模态内注意力机制，监督模型在训练过程中从输入模态中提取与目标模态一致的特征；
-对于互补性，我们设计了模态间注意力：根据模态间互补性以输入模态的信息补充生成目标模态所需要的信息。模态间注意力需要模态特征之间的兼容性，而这由我们的模态内注意力机制通过一致性约束提供。我们将提出的模态内注意力与模态间注意力机制结合，提出用于多模态图像转换的联合注意力生成式对抗网络。
-
-% 我们提出的框架由转换网络和自表示网络组成。
-
-我们提出基于联合注意力机制机制的生成对抗网络贡献如下：
-
+我们的属性一致性生成式对抗网络具有以下优点：
 \begin{enumerate}
-\item 我们提出模态间注意力，用于模态间互补性用输入模态的信息补充生成目标模态所需要的信息。
-\item 我们引入自表示网络来指导训练期间的生成模型，这提供了模态补充模块所需的特征兼容性，并在特征提取阶段过滤掉无关信息。
-\item 通过与现有方法在多模态图像转换任务的定量和定性比较，证明了我们方法的能够生成更精确和逼真的结果。
+    \item \textbf{正交属性空间} 将属性映射到预定义的正交空间。每个基向量在正交属性空间中的坐标表示属性强度。
+    \item \textbf{属性一致性} 生成图像的预测属性值与输入属性变量一致，有效将可控语义方向投影到正交属性空间。
+    \item \textbf{连续属性量化} 为了将我们的方法应用于更常见的二值属性数据集，我们计了一种属性量化策略来获得连续属性伪标签，可以灵活地与许多现有方法集成以提高编辑性能。
+    \item \textbf{统一范式} 在隐空间和生成模型中全面优化属性可控方向。通过增加可控参数来提高生成模型的属性敏感性。
 \end{enumerate}
 
-
-\section{联合注意力生成式对抗网络}
-为了尽可能地提取与目标模态一致的多模态表示，并充分利用模态间互补性，从而提高缺失模态图像的生成质量，我们提出了联合注意力机制，并与自监督学习相结合，提出了一种新的多模态图像转换框架JAGAN。我们提出的JAGAN可以灵活地从可用模态中生成任何缺失的模态。
+\section{属性一致性的生成式对抗网络}
 
 \subsection{概述}
-
-受\cite{zhang2020deep}的启发，我们为多模态图像转换任务提出了模态间互补性和跨模态一致性：
-\begin{itemize}
-    \item 跨模态一致性：只有与目标模态一致（相关）的特征才能被提取出来，无关的信息的应该被过滤掉。
-    \item 模态间互补性：对于多模态任务，大多数模态包含其他模态不包含的信息。可以利用这种性质来估算更好的缺失模态。
-\end{itemize}
-
-现有的基于生成式对抗网络的图像转换方法取得了很大进展，但这些方法忽略了可用多模态图像之间的一致性与互补性。对于一致性，我们使用自表示网络，结合我们提出的模态内注意力机制，监督模型在训练过程中从输入模态中提取与目标模态一致的特征。对于互补性，由于目前多模态图像转换任务缺乏大规模数据集，这使得网络很难自动学得如何最大程度地利用模态间互补性。为了解决这个问题，我们提出了模态间注意力，用从其他输入模态中提取的特征来补充生成目标特征所需的特征。
-
-如图~\ref{f1}所示，我们的JAGAN由自表示网络和转换网络组成，转换网络由GANs实现。出于模态间的互补性，模态间注意力在特征融合之前每个输入模态补充来自其他模态信息。考虑到自编码器强大的自表示能力，我们在此采用自编码器网络作为自表示网络来引导模态内注意力的训练，约束生成器在特征提取阶段只提取与目标模态一致（相关）的特征，这进一步为模态间注意力提供必要的模态特征兼容性。
+目前，大多数隐空间编辑方法都存在属性耦合的问题，因为它们不能保证发现的方向独立，这不可避免地导致隐空间中的语义耦合。
+这个问题提供了我们方法背后的主要直觉。也就是说，我们的目标是学习易于相互区分的正交属性方向。
+我们试图通过将属性方向投影到正交空间中，并将隐代码分解为内容代码和正交属性代码来实现这一目标。
+具体来说，我们提出了一种通过正交属性一致性进行图像编辑的语义可控 GAN（ACGAN），如图~\ref{fig:framework}所示。与现有方法不同，我们将属性回归器强加给生成器，并约束生成图像的预测属性与输入属性代码之间的连续一致性。
+这从根本上解决了隐空间编辑中的属性耦合问题，使同时编辑多个属性成为可能。
 
 \begin{figure}
     \centering
-    \includegraphics[width=1\columnwidth]{figures/JAGAN/framework.pdf}
-    \caption[aaa]{JAGAN框架图。来自模态$\{m_1, m_2, m_3\}$的输入图像$\{x_1, x_2, x_3\}$分别被送入转换网络对应的分支，来生成目标模态$m_4$的图像$x_4$。我们结合模态内注意力和模态间注意力提取生成模态目标所需特征，模态内注意力受自表示网络监督。}
-    \label{f1}
+    \includegraphics[width=1\linewidth]{figures/ACGAN/framework.pdf}
+    \caption{方向搜索方法（左）和我们的方法（右）的框架。 在（a）中，~\cite{icml2020, iclr2021}找到的方向是通过比较原始图像和编辑图像的属性差异来完成的。 找到的方向纠缠在一起。 相反，如（b）所示，我们的方法使用输入属性值和生成图像的预测属性之间的属性一致损失来训练生成器。 我们预定义的方向是正交的，以便将每个语义方向与其他方向分开。}
+    \label{fig:framework}
+  \end{figure}
+
+\subsection{连续属性标签量化}
+% 形式化问题
+% 对于给定的图片集$\{I_k\}_{k=1}^n \subset \mathbb{R}^{h \times w \times 3}$, 及其对应的属性集$\{y_k\}_{k=1}^n \subset \mathbb{R}^{d}$, 在这里$y_k$ is 0 for negtive or 1 for positive
+假设我们有图片集 $\mathcal{D} = \{I_k\}_{k=1}^n \subset \mathbb{R}^{h \times w \times 3}$ 和属性集 $\mathcal{A} = \{y_k\}_{k=1}^n \subset \mathbb{R}^{d}$。 我们用 $\{I_k, y_k\}$ 表示数据集$\{\mathcal{D}, \mathcal{A}\}$种第 $k$ 张图片和其对应的属性标签。每个$y_k=[y_{k,1}, y_{k,2}, \cdot \cdot \cdot ,y_{k,N}]$, $y_{k,i}$的值是0或1, $N$ 属性类别的数量。我们的目标是 我们的目标是生成连续的伪标签 $\{\hat{y}_k\}_{k=1}^n$ 其中 $\{\hat{y}_k\}$ 包含 0 到 1 之间的连续值。
+
+% 我们的想法是在$\mathcal{D}$上训练一个分类器，通过归一化分类器的置信度得到连续伪标签。
+我们的想法是在$\{\mathcal{D}, \mathcal{A}\}$上训练一个由属性回归器$R_c$和一层$sigmoid$组成分类器，分类器通过二值交叉熵损失训练：
+\begin{equation}
+     \mathcal{L}_{BCE} = \sum_{k=1}^n \sum_{i=1}^d [y_{k,i} \cdot \log x_{k,i}+\left(1-y_{k,i}\right) \cdot \log \left(1-x_{k,i}\right)],
+\end{equation}
+最后通过归一化分类器的置信度得到连续伪标签。
+
+如图~\ref{fig:quantization}(b)所示，我们通过归一化 $\{R_c(I_K)\}_{k=1}^n$：
+\begin{equation}
+     \hat{y}_{k,i} = \frac{R_c(I_k)_i - \min \limits_{1 \leq t \leq n}R_c(I_t)_i}{\max \limits_{1 \leq t \leq n}R_c(I_t)_i - \min \limits_{1 \leq t \leq n}R_c(I_t)_i}，
+     \label{eq3}
+\end{equation}
+生成了连续的属性标签。
+
+注意这里的$R_c(\cdot)$不包含$sigmoid$运算。我们使用$sigmoid$运算之前的值，即$R_c(I_K)$，来计算量化属性值的原因在于$sigmoid$是一个“软”的阶跃函数：
+\begin{equation}
+   \chi_{A}(x)=\left\{\begin{array}{ll}
+      0 & \text { if } x \leq 0 \\
+      1 & \text { if } x > 0,
+      \end{array}\right.
+\end{equation}
+$sigmoid$会将$R_c(I_K)$推至接近于0或1的值。
+
+现在我们有了连续属性标签集$\hat{\mathcal{A}}=\{\hat{y}_k\}_{k=1}^n$，我们用于在新数据集$\{\mathcal{D}, \hat{\mathcal{A}}\}$上训练新的属性回归器$R$，并将其用于监督生成器训练。
+
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=1.0\linewidth]{figures/ACGAN/continue.pdf}
+  % \caption{=连续属性生成。We first train an attribute classifier $C$ that consists of a continuous attribute regressor $R_c$ and a sigmoid layer as shown in (a) then we normalize outputs of $R_c$ as continuous labels as shown in (b). We collect attribute prediction values of classifier $C$ trained by $\mathcal{A}$, regressor $R_A$ trained by $\mathcal{A}$ and regressor $R$ trained by $\hat{\mathcal{A}}$ in (c), (d) and (e) respectively.}
+  \caption{=连续属性生成。我们首先训练一个属性分类器 $C$，它由一个连续属性回归器 $R_c$ 和一个 sigmoid 层组成，如（a）所示，然后我们将 $R_c$ 的输出归一化为连续标签，如（b）所示。 我们收集由 $\mathcal{A}$ 训练的分类器 $C$、$\mathcal{A}$ 训练的回归器 $R_A$ 和 $\hat{\mathcal{A}} 训练的回归器 $R$ 的属性预测值 $分别在(c)、(d)和(e)中。}
+  \label{fig:quantization}
 \end{figure}
 
-不失一般性，为了便于表示，我们假设数据集中存在四种模态 $\{m_1, m_2, m_3, m_4\}$。对于转换网络，我们假设模态 $\{m_1, m_2, m_3\}$ 中的输入图像 $\{x_1, x_2, x_3\}$ 被转换为目标模态 $m_4$ 中的目标图像 $x_4$。
+\subsection{Semantic Controllable GAN}
+我们的ACGAN可以基于任意的unconditional GAN实现。如图所示，ACGAN由3部分构成：生成器、判别器和属性回归器。我们保持判别器的结果不变，将latent code和attribute code共同作为网络的输入送入到生成器中。属性回归器的作用是监督生成器的样本：生成器的训练目标不再仅仅是“骗过”判别器，还要满足生成样本的属性值满足输入的属性code。总之，在已有属性回归器的前提下，为了将任意的unconditional GAN改造成可以控制属性的Attribute GAN，仅需要做以下两点：1. 将生成器的输入扩充为latent code和attribute code 2. 计算生成器的损失时加上属性回归损失。
+% \subsubsection{Overview} Our ACGAN can be implemented based on any unconditional GAN and is composed of 3 parts: a generator $G$, a discriminator $D$, and a pretrained attribute regressor $R$. Leaving the discriminator unchanged, the attribute code $\alpha$ and content code \emph{z} are fed into the generator as the inputs. $R$ is utilized to supervise the attributes of generated samples via attribute regression loss. The objective of the generator is no longer just to "deceive" the discriminator, but also to satisfy the attribute consistency, i.e., the attribute of the generated samples equal to the input attribute code. In short, in order to transform any unconditional GAN into ACGAN, only two changes need to be implemented: (1) decomposing the input values into content values and attribute values; (2) adding attribute regression loss.
 
-\subsection{模态内注意力与自监督学习}
+\subsubsection{Attribute-consistent loss}
+ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样本的属性受到属性回归器的约束。这是通过Attribute Regression Loss实现的。
+% The key point to control the attributes of the generated samples is that the attributes of the generated samples are constrained by the attribute regressor in the training phase. This is achieved through minimizing $l_2$-norm between input attribute code $\alpha$ and predicted attribute $R(G(z|\alpha))$.% i.e., $\|R(G(z|\alpha)) - \alpha\|_2$.
+% % \begin{equation}
+% %      L_{Reg} =  \mathbb{E}_{z \sim \mathcal{N}(0,1), a \sim \mathcal{U}(0,1)}\|R(G(z|a)) - a\|_2
+% % \end{equation}
+% \begin{equation}
+%      \|R(G(z|\alpha)) - \alpha\|_2
+% \end{equation}
 
-正如我们前面提到的，我们引入了一个自编码器来驱动转换网络$\mathcal{T}$的训练，它由一个带有多分支编码器和单个分支解码器的生成器$\mathcal{G}$和判别器$\mathcal{D}$组成，自表示网络$SR$由自编码器实现。
+如何在训练阶段采样$\alpha$？我们在这里提供两种采样方式：1)从连续标签集$\hat{\mathcal{A}}$中采样 2)从均匀分布$\mathcal{U}(0,1)$采样。
+当数据集中的属性在语义上存在耦合时，某些属性值的组合可能是不合理的。以CelebA数据集为例，（山羊胡）goatee和男性（male）这两种属性是高度耦合的，从常识上判断，male为0但goatee的属性为1的组合是不合理的，
+% How to sample $\alpha$ in the training phase? We investigate two sampling strategies: 1) sampling from the pseudo-label set $\hat{\mathcal{A}}$, 2) sampling from a uniform distribution $\mathcal{U}(0,1)$. 
+% When attributes in $\mathcal{A}$ are semantically tangled, the combination of certain attribute values may be unreasonable. Taking CelebA dataset~\cite{celeba} as an example, the two attributes \textit{goatee} and \textit{male} are highly tangled. This combination is unreasonable where \textit{goatee} is 1 and \textit{male} is 0.
 
-$SR$ 以通道为粒度驱动 $\mathcal{T}$ 进行训练：
-\begin{align}
-	\mathcal{L}_{SR} = \sum_{k=1}^n \|f^{SR}_{x_i}- E^{SR}(x_{m_4})\|_2
-\end{align}
+考虑到 $\hat{\mathcal{A}}$ 中的每个伪标签对应于 $\mathcal{D}$ 中的真实图像，第一种策略可以保证采样的 $\alpha$ 是合理的。
+此时属性一致性损失可形式化为公式：
+% Considering that each pseudo label in $\hat{\mathcal{A}}$ corresponds to a real image in $\mathcal{D}$, the first strategy can guarantee $\alpha$ is reasonable.
+% Attribute-consistent loss can be formulated as:
+\begin{equation}
+   \mathcal{L}_{Reg}(G, R)  =  \mathbb{E}_{z \sim \mathcal{N}(0,1), \alpha \sim \hat{\mathcal{A}}}\|R(G(z|\alpha)) - \alpha\|_2.
+\end{equation}
 
-其中 $E^{SR}(x_{m_4}$表示自表示网络编码器的输出，$f_{x_k}=E_k(x_k)$，$E_k(\cdot)$ 表示生成器$G$第$k$个编码分支$E_k$的输出。
+至于第二种策略，我们可能会从 $\mathcal{U}(0,1)$ 中采样不合理的 $\alpha$，但是与第一种相比，这种采样策略有两个不可或缺的优势：
 
-\subsection{模态间注意力}
+1) $\hat{\mathcal{A}}$ 中的属性值组合相当偏颇。让我们假设 $\alpha$ 中的每个变量都服从正态分布 $\mathcal{N}(0,1)$。如果我们直接从 $\hat{\mathcal{A}}$ 中采样 $\alpha$，中间属性值（接近 0.5）的采样概率最高，而采样极端属性值（接近 0 或 1）的概率) 会非常小。这实际上与我们的目标相矛盾：当输入属性从 0 线性变化到 1 时，我们希望 ACGAN 能够线性生成相应属性值的样本。在这个过程中，我们平等对待中性属性值和极端属性值，因此从 $\mathcal{U}(0,1)$ 采样是一个更好的策略。
 
-特征图中的每个通道都可以看作是深度神经网络从输入中提取的某种模式。对于任意通道而言，每个输入模态中包含的信息是不同的。我们仍以医学图像为例，如果第k个通道是关于肿瘤的纹理特征，显然T1Gd包含最丰富和最有价值的信息；如果该通道是关于脑脊液的，那么T2是最重要的模态。一个自然的想法是将T1Gd中的肿瘤相关信息添加到T2模态中，并将T2中的脑脊液相关信息添加到T1Gd模态中。这实际上就是在利用模态间的互补性。
+2) $\hat{\mathcal{A}}$ 中的样本可能有限。请注意，$\alpha$ 位于高维空间 $\mathbb{R}_N$ 中。在 $\mathbb{R}_N$ 中采样 $n$ 个点是不够的，但这正是我们从 $\hat{\mathcal{A}}$ 中采样时所做的。
+如果我们采用第二种策略，采样点的数量取决于我们训练 ACGAN 的迭代次数，该次数远大于 n。
+%As for the second strategy, we may sample unreasonable $\alpha$ from $\mathcal{U}(0,1)$, but this sampling strategy has two indispensable advantages compared to the first one: 
 
-请注意，在向其他模态补充信息之前，对于给定的通道或模式，我们需要知道哪种模态包含最丰富的信息，或者我们需要更多关注哪种模态。受注意力机制~\cite{seq2seq,attentionallyouneed,nonlocal,sagan}的启发，我们提出了一种如图~\ref{f2}所示的模态注意力机制，来计算跨模态的通道权重（表示为 $\mathcal{A}$）。
+%1) Combination of attribute values in $\hat{\mathcal{A}}$ is quite biased. Let us assume that each variable in $\alpha$ obeys normal distribution $\mathcal{N}(0,1)$. If we directly sample $\alpha$ from $\hat{\mathcal{A}}$, the medium attribute value (close to 0.5) has the highest sampling probability, while the probability of sampling extreme attribute value (close to 0 or 1) will be very small. This actually contradicts our goal: when the input attribute changes linearly from 0 to 1, we wish ACGAN can linearly generate samples of the corresponding attribute value. In this process, we treat neutral attribute values and extreme attribute values equally, so sampling from $\mathcal{U}(0,1)$ is a better strategy.
 
-\begin{figure}
-	\centering
-	\includegraphics[width=0.8\columnwidth]{figures/JAGAN/20201109InterAttention_function_AV1_0.pdf}
-	\caption[]{模态间注意力机制的注意力矩阵计算过程. FC表示公式\ref{e1}中定义的两层全连接层。}
-	\label{f2}
-\end{figure}
+%2) The samples in $\hat{\mathcal{A}}$ may be limited. Note that $\alpha$ lies in a high-dimensional space $\mathbb{R}_N$. It is insufficient to sample $n$ points in $\mathbb{R}_N$, but this is exactly what we do when sampling from $\hat{\mathcal{A}}$.If we adopt the second strategy, the number of sampled points depends on the number of iterations we train ACGAN, which is much larger than n.
 
-\begin{align}
-	\mathcal{A} = S_2(\sigma((\delta([f_{x_1}, f_{x_2}, f_{x_3}]W_1))W_2))\
-	\label{e1}
-\end{align}
+一般情况下属性code从均匀分布采样即可。让我们假设属性集$\mathcal{A}$服从正态分布，如果我们直接从$\mathcal{A}$采样，则中性的属性值（接近0.5）采样概率高，而极端的属性值（接近0或1）被采样到的概率就会很小。这实际上和我们的目标相矛盾：当输入的属性从0到1线性变化时，ACGAN能够线性生成对样属性值的样本。在这个过程中，我们将中性的属性值和极端的属性值同等看待，所以从均匀分布中采样是一种更合理的策略。
+此时属性一致性损失可以被形式化为：
 
-其中 $f_{x_k}=E_k(x_k)$，$E_k(\cdot)$ 表示生成器$G$第$k$个编码分支$E_k$的输出，$[\cdot,\cdot]$ 表示张量reshape（将张量从CxHxW展平至CxHW）和串联。 $W_1$和$W_2$是两个全连接层，如图~\ref{f2}。$\delta$和$\sigma$ 分别是ReLU\cite{nair2010rectified}和Sigmoid 函数。 $S_2$是 对$\mathcal{A}$ 每一行进行softmax运算的函数。从结果上来看，元素$\mathcal{A}_{i,j}$第$i$个模态对第$j$个的模态的注意力，换句话说，是用第$j$个的模态向第$i$个模态补充信息时的权重。
+% Generally, sampling $\alpha$ from $\mathcal{U}(0,1)$ is a more universal strategy. Attribute regression loss can be formulated as:
+\begin{equation}
+     \mathcal{L}_{Reg}(G, R)  =  \mathbb{E}_{z \sim \mathcal{N}(0,1), \alpha \sim \mathcal{U}(0,1)}\|R(G(z|\alpha)) - \alpha\|_2.
+\end{equation}
 
-如图\ref{f3}所示，我们使用$\mathcal{A}$将其他模态的信息补充到每个输入模态中。通过这种方式，我们可以获得生成$i$-th模态所需的的互补特征$f_{x_i}^{comp}$：
-\begin{gather}
-	f_{x_i}^{comp} = \gamma * f_{x_i} +
-	(1-\gamma) * \sum_{k=1}^n (f_{x_k} * \mathcal{A}_{k})\
-\end{gather}
-其中$*$表示向量和特征图之间的通道乘法，n输入模态数（在我们前面的假设下这个数字是3）。$\mathcal{A}_{k}$是注意力权重矩阵$\mathcal{A}$的第$k$ 列。在补充信息的同时，通过设置权衡参数$\gamma$来保留当前模态的信息。
-
-\begin{figure}
-	\centering
-	\includegraphics[width=0.8\columnwidth]{figures/JAGAN/20201109InterAttention_function_BV1_0.pdf}
-	\caption[aaa]{信息互补的过程. $A_{i,j}$是$A$第$i$行第$j$的元素. 在上图中，第2种模态以权重$A_{3,2}$向第1种模态的第3个通道补充信息，第3种模态以权重$A_{3,3}$向第1种模态的第3个通道补充信息。} 
-	\label{f3}
-\end{figure}
-
-\subsection{网络实现}
-
-JAGAN由转换网络和子表示网络组成。
-
-\textbf{网络损失} 在训练阶段，我们使用 Adam 来优化模态间注意力-GAN 的生成器 G 的总损失：
-\begin{align}
-	\mathcal{L}_G = \mathcal{L}_{L1} + \mathcal{L}_{GAN} + \lambda  \cdot \mathcal{L}_{intra}^{SR}
-\end{align}
-其中 $\mathcal{L}_{L1}$ 和 $\mathcal{L}_{GAN}$ 都是在 pix2pix 中定义的，$\lambda$ 是 $\mathcal{L}_{intra}^{SR}$ 的权重。
-
-\textbf{转换网络} 转换网络由一个生成器和一个鉴别器组成。 我们采用70 × 70的PatchGANs\cite{pix2pix} 作为我们的鉴别器网络和来自 \cite{perceptual} 的架构用于我们的生成器。该网络包含三个用于特征提取和下采样的卷积，几个用于特征变换的残差块，以及三个用于上采样的卷积。为了适应多模态输入，我们重复构造前三个卷积 $\{Conv_1, Conv_2, Conv_3\}$ $n$ 次，形成一个多分支编码器，其中 $n$ 是输入模态的数量，$ Conv_k$ 表示第 $k$ 个卷积，每个分支以$E_i$表示。 我们将模态内注意力模块添加到 $Conv_2$ 和 $Conv_3$之间，并将模态间注意力 注意力添加到 $Conv_3$之后。为了使模型能够接收任何三种模式作为输入，我们在每个输入图像中添加目标模态的one-hot编码的mask\cite{stargan}\cite{collagan}。
-
-\textbf{自表示网络} 自表示网络采用与生成器相同的网络结构，区别在于没有使用多分支编码器，在计算损失时没有使用 $\mathcal{L}_{GAN}$。我们将原始图像输入到自表示网络中，不添加任何mask。 实验表明，仅使用 $\mathcal{L}_{L1}$ 监督，自表示网络可以快速拟合每个数据集，并在$\mathcal{T}$的特征提取阶段提供有效的监督。
+% LGAN是
+\subsubsection{网络总损失}
+引入 $R$ 实现的属性回归损失后，我们需要做的就是在原始 GAN 损失中加入属性回归损失：
+% After introducing the attribute regression loss implemented by $R$, all we need to do is adding attribute regression loss to original GAN loss:
+\begin{equation}
+     \min _{G} \max _{D} V(D, G, R) = \mathcal{L}_{GAN}(G, D) + \lambda \mathcal{L}_{Reg}(G, R),
+     \label{overall}
+\end{equation}
+其中 $\mathcal{L}_{GAN}$ 是原始对抗性损失，例如 WGAN~\cite{wgan} 中的 Wasserstein 损失或 LSGAN~\cite{lsgan} 中的最小二乘损失，$\lambda$ 是 $L_{Reg}$的平衡超参数。
+% where $\mathcal{L}_{GAN}$ is the original adversarial loss such as Wasserstein loss in WGAN~\cite{wgan} or least squares loss in LSGAN~\cite{lsgan}, $\lambda$ is a hyper parameter balancing $L_{Reg}$.
 
 
 \section{实验}
 
-\subsection{实验设置}
+\subsection{实验细节}
+我们在人脸合成和自然场景合成两个场景做了实验。 在本节中，我们将介绍 $C$ 和 $R$ 的基本模型和架构，然后分别描述这两个场景的实现细节。
+% We conduct experiments on face synthesis and natural scene synthesis. In this section, we will introduce base model and architecture of $C$ and $R$, then describe implementation details in these two scenarios separately.
 
-\subsubsection{数据集和评测标准}
+\subsubsection{基本模型} 
+我们基于轻量级 GAN~\cite{lwgan} 和 StyleGAN2~\cite{stylegan2} 实现了ACGAN。属性变量$\alpha$ 分别拼接在 轻量级 GAN 的 $z$ 和 StyleGAN2-mini 的 $w$ 后面。
+% We implement the proposed ACGAN based on light-weight GAN~\cite{lwgan} and StyleGAN2~\cite{stylegan2}. Due to the heavily computing cost of Stylegan2, we halve number of channels of convolution layer in each style block of Stylegan2. We term this more light weight Stylegan2 as Stylegan2-mini, which is adopted as the basic generative model  in the face synthesis experiments. The attribute code $\alpha$ is concatenated with $z$ for light-weight GAN and $w$ for StyleGAN2-mini.
 
-\textbf{医学图像转换}
-对于多模态医学图像转换任务，我们在 BraTS2020~\cite{bakas2018identifying}数据集上评测我们的方法，该数据集由四种核磁共振 (MR) 成像模式组成：T1加权成像（T1）、Gd造影剂成像(T1Gd)、T2加权成像 （T2 ）和液体衰减反转恢复序列成像（T2-FLAIR）。 共有494名受试者患有低级别或高级别胶质瘤。 每个MR图像的大小为 $240\times240\times155$，体积元素大小为 $1\times 1\times 1 mm^3$ 由于这些MR图像是通过不同的临床协议和来自多个（$n=19$）机构的各种扫描仪获得的，并且肿瘤实体在不同的方式下具有不同的外观，因此转换任务的难度非常大。
+\subsubsection{$C$和$R$的结构}
+我们采用 ResNet-50~\cite{resnet} 作为分类器 $C$ 和回归器 $R$ 的骨干网络，并且用维度为$N$的全连接层替换最后一个全连接层，这里的$N$对应属性类别的数量。 我们将 $sigmoid$ 与属性分类器 $C$分来表示，因此 $C$ 和 $R$ 共享相同的网络结构。 我们在 CelebA 数据集上训练分类器 $C$，达到 $96.05\%$ 的分类准确度。在 $\hat{\mathcal{A}}$ 上训练的回归器在验证集上的最小均方误差（MSE）达到 $0.0337$ ，在自然场景数据集~\cite{scenedataset} 上训练的回归器的MSE达到 $0.0142$。
+% We adopt ResNet-50~\cite{resnet} as the backbone architecture of classifier $C$ and regressor $R$. The last fully connected layer is replaced by a new one with the dimension of $N$ corresponding to attribute categories. We isolate $sigmoid$ from attribute classifier $C$, so $C$ and $R$ can share the same network architecture. We train the classifier $C$ on CelebA dataset, which achieves $96.05\%$ of classification accuracy. The regressor trained on $\hat{\mathcal{A}}$ reaches validation MSE of $0.0337$ and the regressor trained on Transient Attribute Database~\cite{scenedataset} and reaches validation MSE of $0.0142$.
 
-我们遵循BraTS2020数据集中的原始训练集测试集划分协议：369个样本作为训练集，剩下的125个样本作为测试集。
+\subsubsection{数据集}
+对于人脸合成，人脸属性知识是从 CelebA 数据集~\cite{celeba} 中学习的，这是一个大规模的人脸属性数据集，由超过 200K 的名人照片组成。每张图像有 40 个属性标注，分辨率为 $178\times218$。 我们的 ACGAN 模型在 Flickr-Faces-HQ (FFHQ)~\cite{stylegan} 数据集上进行训练，该数据集由$70,000$的高质量图像组成，分辨率为$1024\times1024$，并且在年龄、种族和图像背景方面包含相当大的变化 . FFHQ训练的模型能够生成更真实的图像。
+% For face synthesis, the facial attribute knowledge is learned from CelebA dataset~\cite{celeba}, which is a large-scale face attributes dataset consists of more than 200K celebrity images, each with 40 attribute annotations at $178\times218$ resolution. Our ACGAN model is optimized on Flickr-Faces-HQ (FFHQ)~\cite{stylegan} dataset, which consists of $70,000$ high-quality images at $1024\times1024$ resolution and contains considerable variation in terms of age, ethnicity and image background. FFHQ enables the model to generate high-fidelity images. 
 
-\textbf{面部图像转换}
-对于多模态面部图像转换任务，我们在 Radboud Faces Database (RaFD)~\cite{langner2010presentation} 上评测我们的方法，该数据集包含八种面部表情：快乐、愤怒、悲伤、轻蔑、厌恶、中立、恐惧、惊讶；和三个注视方向：向左看、向前看、向右看。 共有67名受试者，其中男性38名，女性19名，儿童10名。
+% We select all 40 attributes for training as only a few attributes are mutually entangled.
+对于自然场景合成，回归器 $R$在 Transient Attribute Database~\cite{scenedataset} 上训练。 由于该数据集具有介于 $0$ 和 $1$ 之间的连续属性值，因此没有必要训练属性分类器 $C$。 受\cite{iclr2021}的启发，我们从Place数据集~\cite{place}和SUN数据集~\cite{sun}中选择了40,726张与自然场景相关的图片来扩展Transient Attribute数据集，并利用这个增强的自然场景数据集进行优化我们的ACGAN模型。
+% For natural scene synthesis, the natural attribute knowledge is learned from Transient Attribute Database~\cite{scenedataset} for regressor $R$. Since this dataset has continuous attribute values between 0 and 1, it is unnecessary to train an attribute classifier $C$. Motivated by \cite{iclr2021}, we selected 40,726 pictures related to natural scenes from Place dataset~\cite{place} and SUN dataset~\cite{sun} to expand the Transient Attribute dataset, and utilized this augmented natural scene dataset to optimize our ACGAN model. 
 
-由于 RaFD 数据集的样本数量有限，我们在实验中采用了 10 折交叉验证。即90\%的数据（约 60 名受试者）构成了训练集，测试集包含剩余的 10\%（6 或 7 名受试者）数据。
+% Unfortunately, lots of attributes are tangled, e.g., "daylight" and "night", "summer" and "winter". To avoid problem of tangled attributes discussed in Sec.\ref{section-31}, we select 5 attributes: "night", "clouds", "fog", "winter" and "sunny".
 
-\subsubsection{实现细节}
-所有实验均在 PyTorch 框架下使用 NVIDIA TITAN RTX GPU 完成。我们使用动量参数 $\beta_1 = 0.5$ 和 $\beta_2 = 0.999$ 的 Adam 优化器~\cite{kingma2014adam} 优化网络参数。所有实验的批大小均设置为 1。实验过程中使用的所有图像都是空间对齐的。为了使训练更加稳定，我们先单独训练自表示网络，然后在训练转换网络时加载预先训练好的自表示网络。同时训练自表示网络和转换网络可以达到类似的准确率，但需要更多的迭代次数才能完成。
+\subsubsection{其他实现细节}
+我们设置超参数 $\lambda$ 来表示用于平衡属性回归损失的所选属性的数量，即 $\lambda=40$ 用于面部合成，$\lambda=5$ 用于自然场景合成。 $C$ 和 $R$ 均由 Adam 优化器训练，学习率为 0.0001。 我们使用单张 Titan RTX 进行所有实验。
+% We set hyperparameter $\lambda$ to denote the number of selected attributes for balancing attribute regression loss, i.e., $\lambda=40$ for face synthesis and $\lambda=5$ for natural scene synthesis.  Both $C$ and $R$ are trained by an Adam optimizer with a learning rate of 0.0001. We use a single Titan RTX for all experiments.
 
-由于BraTS2020数据集中的 3D MR 图像是根据横向平面扫描的，显然它们仅在水平方向上是连续的。在这里，我们遵循扫描方向，从每个样本中提取多个切片。所有图像都缩放到 $256\times256$，并在将它们放入模型之前将像素值归一化到区间 $[-1, 1]$。超参数 $\gamma$、$\lambda$设置为 $0.5$、$0.1$、$0.1$、$3$ 和 $2$。输入和输出通道数在医学图像转换任务中为 1，在面部表情转换任务中为 3。
+\subsection{Face Synthesis}
 
-\subsubsection{基准方法与评测标准}
+\subsubsection{定性比较}
+在本届我们将定性评测单个属性和多个属性的编辑效果，并将我们的方法与两种有监督隐空间编辑方法进行比较：InterFaceGAN~\cite{interfacegan} 和 EnjoyEditing~\cite{iclr2021}。 截止文本撰写位置，EnjoyEditing的官方代码还没有发布，感谢他们简洁的框架，我们重新实现了他们的工作。为了公平地与这两种方法标胶，我们采用 \cite{image2stylegan} 将一张真实图像编码到 StyleGAN2-mini 的隐空间中，以此比较同一图像上的属性编辑性能。
+% We evaluate the attribute controllability on single and multiple attributes, and compare our method with two advanced supervised methods: InterFaceGAN~\cite{interfacegan} and EnjoyEditing~\cite{iclr2021}. Since the official code of EnjoyEditing is not released yet, we re-implement it by ourselves thanks to their concise framework. To fairly compare the performance of the two methods, we adopt \cite{image2stylegan} to encode one real image into the latent space of StyleGAN2-mini, and compare the attribute editing performance on the same image.
 
-我们将我们的方法与三种最先进的基于 GAN 的图像转换方法进行比较：Pix2Pix~\cite{pix2pix}、StarGAN~\cite{stargan} 和 CollaGAN~\cite{collagan}。为了和我们的JAGAN公平比较，所有基准方法的所有结果都是在相同的数据集划分协议下训练和测试的。所有结果均来自作者提供的源代码。我们下面将从定性和定量两个角度，对我们的方法和所有基准方法进行比较。
+图~\ref{fig:face} 显示了单属性编辑（b，c）和多属性编辑（d，e，f）的结果。 对于添加刘海，我们的 ACGAN 是唯一成功添加刘海的方法，而 InterFaceGAN 和 EnjoyEditing 只是将发际线向前移动了一点。 为了加胖，我们的 ACGAN 实现了最精确和最清晰的编辑结果。 InterFaceGAN的结果比原图要老，而EnjoyEditing的结果在增强胖属性方面不明显。
+% Fig.~\ref{fig:face} shows results of single attribute editing (b, c) and multi attributes editing (d, e, f). For adding bangs, our ACGAN is the only method that adds bangs successfully, while InterFaceGAN and EnjoyEditing just move Hairline a little forward. For adding chubby, our ACGAN achieves most precised and distangled editing result. The result of InterFaceGAN is older than the original image, and the result of EnjoyEditing is not obvious at adding chubby.
 
-如何评测转换图像是一个公认的难题~\cite{salimans2016improved}，这是因为图像中的每个像素不是独立的，我们应该在图像维度上评测它们。因此，对于定量评测，我们采用结构相似性指标度量（SSIM）~\cite{ssim} 来评测图像级的一致性，使用特征相似性指标度量（FSIM）~\cite{fsim} 来评测特征级一致性。SSIM 和 FSIM 分数由转换后的生成图像（伪图像）及其相应的真实图像计算得出。与多模态医学图像转换任务不同，面部图像不同表情之间的运动使得很难利用 SSIM 和 FSIM 对面部图像进行定量评测。由于面部图像属于自然图像，因此，通过在ImageNet上预训练的分类模型计算得到的 Fréchet Inception Distance (FID)\cite{fid} 更适合面部图像转换任务。对于定性评测，我们将在实验部分标胶我们方法和所有基准方法的多模态图像转换结果。
+对于多属性编辑评估，我们的 ACGAN 可以在不改变图像身份的情况下同时修改多个属性，如图~\ref{fig:face}。 相比之下，基线无法添加某些属性或更改应保留的不相关属性。 InterfaceGAN 在图~\ref{fig:face}(c) 和 (d) 中涉及多属性编辑时对倒置图像没有做太多改变。 当我们减少 \textit{blond hair} 属性时，EnjoyEditing 显然会将头发颜色更改为更金发。 纹理细节也变得更加模糊，从而导致更差的定性外观，如图~\ref{fig:face}(d) 所示。
+% For multiple attributes editing evaluation, our ACGAN can modify multiple attributes simultaneously without changing the image identity, as shown in Fig.~\ref{fig:face}. In contrast, the baselines fail to add certain attributes or change irrelevant attributes that should be preserved. InterfaceGAN does not make much changes to the inverted image when it comes to multiple attribute editing in Fig.~\ref{fig:face}(c) and (d). EnjoyEditing obviously changes hair color to be blonder when we decrease the \textit{blond hair} attribute. The texture details also become more blurred, which leads to a worse qualitative appearance as shown in Fig.~\ref{fig:face}(d).
 
-\begin{figure}
-	\begin{center}
-		\includegraphics[width=0.8\columnwidth]{figures/JAGAN/ablation1.pdf}
-	\end{center}
-	\caption{特征图可视化. 同一行的特征图来源于同一个卷积核，区别在于有无自表示监督。}
-	\label{fig:ablation1}
+\begin{figure}[!t]
+     \begin{center}
+        \includegraphics[width=1\linewidth]{figures/ACGAN/FaceMulti_center.pdf}
+     \end{center}
+     \caption{Single attribute editing and multi attributes editing evaluation. On the first row, the results generated by our ACGAN are tremendously precise even for enhancing or reducing from $1$ to $7$ attributes including \textit{smiling, chubby, black Hair, blond Hair, lip stick, big Nose} and \textit{pale skin}. Please zoom-in for details.}
+     \label{fig:face}
 \end{figure}
 
+\subsubsection{定量比较}
+为了评估属性编辑的准确性，我们报告了每个属性编辑的成功率和编辑一个属性时不相关属性的保留率。这些指标由预训练的分类器测量。对于成功率，我们随机抽取 5,000 美元的图像并编辑所有这些图像的每个属性。我们的方法在所有属性中实现了 $84.13\%$ 的平均成功率，远高于 En​​joyEditing 的 $26.91\%$。在留存率的评估中，对于每个属性，我们生成 5,000 美元的图像，这些图像可以成功编辑该属性并测量其他未更改的属性。我们的方法实现了 $81.59\%$ 的平均保留率，这也优于EnjoyEditing。 Fig.~\ref{fig:zhuzhuang} 展示了每个属性的比较。我们的方法在成功率的所有属性和保留率的大多数属性上的高级准确性上都实现了优越的性能。
+% To evaluate the attribute editing accuracy, we report the success rate of each attribute editing and the retention rate of irrelevant attributes while editing one attribute. These metrics are measured by a pretrained classifier. For success rate, we randomly sample $5,000$ images and edit each attribute for all these images. Our method achieves $84.13\%$ of averaged success rate among all the attributes, which is much higher than $26.91\%$ of EnjoyEditing. In the evaluation of retention rate, for each attribute, we generate $5,000$ images that can successfully edit this attribute and measure the other unchanged attributes. Our method achieves $81.59\%$ of averaged retention rate, which is also superior than EnjoyEditing. Fig.~\ref{fig:zhuzhuang} presents the comparisons on each attribute. Our method achieves the superiority performance on all the attributes for success rate and advanced accuracy on most attributes for retention rate. We also provide multiple attribute editing comparisons in the supplementary material.
 
-\subsection{对比实验}
-
-最近提出了各种基于 GAN 的图像转换方法。 在这些方法中，Pix2Pix~\cite{pix2pix} 是一种基于 cGAN 的方法，它是我们模型的基本架构，StarGAN~\cite{stargan} 和 CollaGAN~\cite{collagan} 提出了目标模态掩码向量和循环- 一致损失~\cite{cyclegan} 到多模态图像转换任务。因此，我们在下面的实验中将我们的方法与 Pix2Pix、StarGAN 和 CollaGAN 进行比较。
-
-\subsubsection{MR图像转换对比}
-为了评测我们所提出的方法在多模态医学图像转换上的性能，我们用Brats2020训练集中的所有数据来训练自表示网络，并从Brats2020训练集中采样三种模态的所有可能组合，作为转换网络的输入，我们可以通过这三种输入模态生成任何缺失的模态。 由于Pix2Pix和StarGAN只适合单个输入，我们选择 T2-FLAIR 作为输入，每种方法通过三个独立的 Pix2Pix 模型和一个 StarGAN 模型转换为 T1、T1Gd、T2。 因为 T2-FLAIR 可以提供肿瘤实质和水肿区域，明显大于其他三种模式。 T2-FLAIR 模态由具有独特造影剂信息的 T1Gd 模态估计。 CollaGAN 遵循与我们相同的设置。
- 
- \begin{figure}
-	\begin{center}
-		\includegraphics[width=1\columnwidth]{figures/JAGAN/comparsion_facial.pdf}
-	\end{center}
-	% \caption{Comparison results of our approach, Pix2Pix, StarGAN and CollaGAN on RaFD database. The red numbers are the FID scores. The arrows point out the remarkable parts of the results. For Pix2Pix and StarGAN, the pseudo images are translated from the neutral expression. Our JAGAN can generate any target modality by the remaining seven modalities.}
-	\caption{我们的方法、Pix2Pix、StarGAN 和 CollaGAN 在 RaFD 数据集上的比较结果。 红色数字是 FID 分数。 箭头指出了结果的显着部分。 对于 Pix2Pix 和 StarGAN，伪图像是从中性表达转换而来的。 我们的 JAGAN 可以通过其余七种模态生成任何目标模态。}
-	\label{fig:comparsion_facial}
+% 柱状图
+\begin{figure}[!t]
+    \begin{center}
+         \includegraphics[width=1\linewidth]{figures/ACGAN/excel_zhuzhuang.pdf}
+    \end{center}
+    \caption{Comparisons of attribute editing accuracy. EnjoyEditing achieves better performance than InterfaceGAN, we only compare our method with EnjoyEditing due to limited space. Please zoom-in for details.}
+    \label{fig:zhuzhuang}
 \end{figure}
 
-如图~\ref{fig:comparsion_medical}所示，StarGAN和CollaGAN的结果在转换T1Gd、T2和T2-FLAIR时表现出较差的感知外观。软组织细节不清晰，对比度不准确。虽然 CollaGAN 生成了可接受的肿瘤纹理，但结果嘈杂，严重降低了感知外观。 Pix2Pix 在生成 T2 和 T2-FLAIR 方面比 StarGAN 和 CollaGAN 产生更好的纹理细节，但 Pix2Pix 的结果对比不明显。与这些方法相比，我们的 JAGAN 显示出清晰的软组织纹理和明显的肿瘤病变区域。
+我们通过用户研究进一步评估复合属性编辑分数 $\delta$ 和身份保留分数 $\epsilon$。 对于身份保留，这个分数只有在满足属性编辑时才有意义。 基于此，我们提出了加权身份保留分数 $\epsilon_w = \delta * \epsilon$。 评估结果报告在表中。\ref{tb:userstudy}。 每个单元格中的两个数字分别是 $\delta$ 和加权的 $\epsilon_w$。 我们的方法在编辑精度和加权身份保留评估方面均显示出复合属性编辑的优越性。 
+% We further evaluate composite attributes editing score $\delta$ and identity preserving score $\epsilon$ by user study.  For identity preserving, this score is meaningful only when attributes editing is satisfied. Based on this, we propose weighted identity preserving score $\epsilon_w = \delta * \epsilon$. The evaluation results are reported in Table.\ref{tb:userstudy}. The two numbers in each cell are $\delta$ and weighted $\epsilon_w$, respectively. Our method shows superiority on composite attributes editing in both editing precision and weighted identity preserving evaluations. We provide more details of the user study in supplementary material.
 
-对于定量评测，我们在每个转换样本的右下角显示了平均 SSIM 和 FSIM 分数（斜线前后）。这些报告的评测分数由转换后的图像和相应的真实图像计算得出。现有方法忽略了多模态图像中的互补信息，从而降低了定量分数。我们的 JAGAN 在完整的医学图像转换任务集上取得了最高的 SSIM 和 FSIM 分数。
+\begin{table}
+    \caption{Quantitative evaluation of composite attributes editing. The two numbers in each cell are attribute editing score and weighted identity preserving score respectively. GROUP A is \{-Young, -Black Hair, -Blond Hair, +Gray Hair\}, GROUP B is \{+Smile, +Bushy Eyebrows, +Big Nose+\}, GROUP C is \{-Chubby, -Double Chin, -Oval Face\}.}
+    \renewcommand\arraystretch{0.8}
+        \begin{center}
+        % {lC{3.4cm}C{3.3cm}C{2.8cm}}
+        \begin{tabular}{cccc}
+        \toprule
+        & \makecell[c]{GROUP A} & \makecell[c]{GROUP B} & \makecell[c]{GROUP C}\\
+        & $\delta$ \space\space\space\space\space\space $\epsilon$  & $\delta$ \space\space\space\space\space\space $\epsilon$  & $\delta$ \space\space\space\space\space\space $\epsilon$ \\
+        \midrule
+        InterFaceGAN &$45.4$ \space\space $34.0$ &$52.8$\space\space $35.5$&$60.3$ \space\space $40.6$ \\
+        \specialrule{0em}{1pt}{1pt}
+        EnjoyEditing &$65.9$ \space\space $49.1$ &$76.0$ \space\space $59.1$&$58.9$ \space\space $46.6$ \\
+        \specialrule{0em}{1pt}{1pt}
+        Ours &$\textbf{87.7}$ \space\space $\textbf{70.6}$ &$\textbf{84.3}$ \space\space $\textbf{68.5}$&$\textbf{85.9}$ \space\space $\textbf{65.0}$ \\
+        \bottomrule
+        \end{tabular}
+        \end{center}
+        \label{tb:userstudy}
+\end{table}
 
-请注意，由于输入限制，本实验中对 Pix2Pix 和 StarGAN 进行了多次训练。 CollaGAN 占用的计算资源比我们的多得多，但获得的结果却很模糊。作为比较，我们的 JAGAN 可以通过统一模型中的剩余数据生成任何目标医疗模式。该实验中的定量和定性比较通过显示更精确和更现实的结果证明了我们方法的优越性。
 
-\subsubsection{面部表情转换对比}
-评测所提出的多模态医学图像转换方法，我们取 RaFD 数据集训练集中的所有数据~\cite{langner2010presentation} 来训练自表示网络，并从 RaFD 数据集的训练集中选择七种模态的所有可能组合作为输入转换网络。
-然后，我们可以将任何七个面部表情图像转换为剩余的目标面部表情。 Pix2Pix 和 StarGAN 的输入设置为面部表情中性，因为中性和其他样本的差异很小。 CollaGAN 适用于多个输入，因此，它与我们的共享相同的设置。
+\subsubsection{所有属性的编辑}
+以前的监督方向搜索方法仅与 CelebA 数据集的少数 ($<$4) 个属性兼容。我们的方法在这方面取得了很大进展，能够编辑生成样本的所有 40 个属性。具体来说，所有属性值都初始化为 $0.5$。对于每个属性编辑，我们只需将编辑属性值修改为1，同时保持其他属性值和原始内容值不变。 Fig.~\ref{fig:40Attributes} 证明了所提出的属性正交空间的有效性，它使我们的模型能够很好地解开大多数属性，除了四个“\textit{wearing}”属性：戴项链、戴领带、戴耳环和戴着帽子。
+在分析这些可穿戴属性的比例时，我们发现对这些属性的编辑失败并不是由数量引起的。例如，作为可穿戴属性，眼镜在数量比例上可与其他四种可穿戴属性相媲美，但呈现出合理的结果。这可能是因为眼镜在面部的大小和位置是相对固定的，而其他可穿戴项目则不是，这使得眼镜属性编辑比其他可穿戴属性更容易学习。
+% Previous supervised direction searching methods are only compatible with few ($<$ 4) attributes of the CelebA dataset. Our method has made great progress in this regard, being able to edit all the 40 attributes of the generated samples. Specifically, all the attribute values are initialized to $0.5$. For each attribute editing, we simply modify the editing attribute value to 1 while keep other attribute values and original content values unchanged. Fig.~\ref{fig:40Attributes} demonstrates the effectiveness of the proposed attribute orthogonal space, which empowers our model to well disentangle most attributes except for four "\textit{wearing}" attribute: wearing necklace, wearing necktie, wearing earrings and wearing hat.
+% While analyzing the proportion of these wearable attributes, we found that the failure editing on these attributes is not caused by quantity. For instance, as a wearable attribute, eyeglasses are comparable to the other four wearable attributes in the quantity proportion but present reasonable results. This might because the size and the position of the eyeglasses in the face are relatively fixed, while the other wearable items are not, which makes the eyeglasses attribute editing is easier to learn than other wearable attributes.
 
-如图~\ref{fig:comparsion_facial}，由于不同面部表情之间的肌肉运动，图像无法严格对齐。由于 Pix2Pix 需要配对数据，因此 Pix2Pix 在这些未对齐的面部表情图像上的转换面部图像包含很大的变形，导致感知外观较差。 StarGAN 和 CollaGAN 适用于未配对数据，因此，转换的面部表情通常是可以接受的。然而，纹理细节是模糊的，这降低了感知外观。我们提出的方法生成具有正确表情的逼真面部图像。
+\begin{figure*}[!t]
+    \begin{center}
+       \includegraphics[width=0.9\linewidth]{figures/ACGAN/40Attributes.pdf}
+    \end{center}
+    \caption{Edited samples of all 40 attribute in CelebA dataset. The original image is generated under all attribute values equal to 0.5. For each attribute editing, we simply increase that attribute value to 1 and keep content values and other attribute values unchanged.}
+    \label{fig:40Attributes}
+\end{figure*}
 
-\begin{figure}
-	\begin{center}
-		\includegraphics[width=1\columnwidth]{figures/JAGAN/comparsion_medical.pdf}
-	\end{center}
-	\caption{Comparison results of our approach, Pix2Pix, StarGAN and CollaGAN on BraTS2020 database. The yellow numbers are the SSIM and FSIM scores. The arrows point out the remarkable parts of the results. For Pix2Pix and StarGAN, the pseudo T1/T1Gd/T2 figures/JAGAN are translated from a T2-FLAIR image, and the T2-FLAIR image is translated from T1Gd. Our JAGAN generates any target modality by the remaining three modalities.}
-	\label{fig:comparsion_medical}
+\subsubsection{$C$和$R$的分析}
+我们将 $[0,1]$ 分成 20 个相等的间隔，并在 FFHQ 数据集上绘制属性 \textit{smiling} 得分的频率直方图。 如图~\ref{fig:quantization}(c)所示，sigmoid会将属性分类器$C$的输出推向接近0或1。$\mathcal{A}$训练的属性回归器也生成大部分预测值接近 到 0 或 1，如图所示。~\ref{fig:quantization}(d)。 相反，我们由 $\hat{\mathcal{A}}$ 训练的属性回归器 $R$ 产生了更合理的从 0 到 1 的连续值，如图~\ref{fig:quantization}(e)。 我们在补充材料中提供了更多分析。
+% We divide $[0,1]$ into 20 equal intervals and plot frequency histogram of attribute \textit{smiling} score on FFHQ dataset. As shown in Fig.~\ref{fig:quantization}(c), sigmoid will push output of attribute classifier $C$ close to 0 or 1. Attribute regressor trained by $\mathcal{A}$ also generates most prediction values close to 0 or 1 as demonstrated in Fig.~\ref{fig:quantization}(d). On the contrary, our attribute regressor $R$ trained by $\hat{\mathcal{A}}$ produces more reasonable continuous values from 0 to 1 as in Fig.~\ref{fig:quantization}(e). We provide more analysis in the supplementary material.
+
+\subsection{自然风景合成}
+
+\subsubsection{定性比较}
+在 \cite{iclr2021} 之后，我们将我们的 ACGAN 与图像到图像方法 CycleGAN~\cite{cyclegan}、RelGAN~\cite{relgan} 和 DRIT++~\cite{drit++} 进行比较，如图~\ref{fig:sceneComparison}。 我们根据属性值将 Transient Attributes 数据集分为两部分：\textbf{A} 部分（属性值 $>$ 0.5）和 \textbf{B} 部分（属性值 $\leq$ 0.5）。 这些方法是通过从 \textbf{A} 部分到 \textbf{B} 部分的翻译图像从头开始训练的，反之亦然。
+如图~\ref{fig:sceneComparison}所示，与其他方法相比，我们的ACGAN准确地改变了原始图像的属性，这表明我们的模型在自然属性编辑方面表现良好。
+% Following \cite{iclr2021}, we compare our ACGAN with image-to-image methods CycleGAN~\cite{CycleGAN2017}, RelGAN~\cite{relgan}, and DRIT++~\cite{drit++} in Fig.~\ref{fig:sceneComparison}. We split Transient Attributes dataset into two parts based on attribute value: \textbf{A} part (attribute value $>$ 0.5) and \textbf{B} part (attribute value $\leq$ 0.5). These methods are trained from scratch by translation image from \textbf{A} part to \textbf{B} part and vice versa.
+% As shown in Fig.~\ref{fig:sceneComparison}, compared with other methods, our ACGAN accurately change the attributes of the original images, which suggests that our model performs well in natural attributes editing.
+
+\begin{figure}[t]
+    \begin{center}
+         \includegraphics[width=0.7\linewidth]{figures/ACGAN/Scenecomparison.pdf}
+    \end{center}
+    \caption{Comparing our ACGAN with CycleGAN, RelGAN, and DRIT++ on 5 attributes editing.}
+    \label{fig:sceneComparison}
 \end{figure}
 
-对于定量评测，FID 分数显示在每个样本的左上角。分数越低意味着效果越好。 StarGAN 和 CollaGAN 的转换结果是模糊的，这导致了高 FID 分数。虽然 Pix2Pix 的结果包含更大的变形，但细节比 StarGAN 和 CollaGAN 更真实。与这些最先进的方法相比，我们的方法以最低的 FID 分数实现了最佳的定量评测。
+\subsubsection{连续属性编辑}
+由于自然图像的属性易于观察，我们对瞬态属性数据集进行连续属性编辑。 与人脸合成类似，ACGAN 在编辑自然场景属性（即“夜晚”、“云”、“雾”、“冬天”和“晴天”）方面也表现出卓越的性能。 我们在图\ref{fig:scene}中展示了我们在自然场景下的连续属性编辑结果。 受益于正交属性空间，ACGAN在图像身份保存方面实现了自然场景中的准确属性编辑。
+% Since the attributes of natural images are easy to observe, we conduct continuous attributes edits on Transient Attributes dataset. Similar to face synthesis, ACGAN also shows superior performance in editing natural scene attributes, i.e., "night", "cloud", "fog", "winter" and "sunny". We present our continuous attribute editing results under natural scene in Fig.\ref{fig:scene}. Benefiting from the orthogonal attribute space, ACGAN achieves accurate attribute editing in natural scenes with regards to image identity preservation.
 
-类似于多模态医学图像转换任务，我们的方法可以通过统一模型中的其他七个面部表情生成任何面部表情。这种多模态面部表情转换实验也证明了所提出的 JAGAN 的有效性。
+\begin{figure*}
+    \begin{center}
+         \includegraphics[width=0.85\linewidth]{figures/ACGAN/scene.pdf}
+    \end{center}
+    \caption{Edited samples of 5 attributes in Transient Attributes dataset~\cite{scenedataset}. We demonstrate continuous changes in samples with each attribute increasing from 0 to 1 in the above picture.}
+    \label{fig:scene}
+\end{figure*}
 
-\subsection{消融实验}
+\subsubsection{定量比较}
+为了定量评估我们的 ACGAN 在控制自然场景合成的属性方面，我们使用我们的 ACGAN 为每个属性生成 $5,000$ 的图像对 $(I_-,I_+)$。 $I_-$ 表示该属性为“关闭”或“负”，反之亦然。 我们在由属性回归器 $R$ 计算的 $(I_-,I_+)$ 之间定义属性增益：属性增益=$R(I_+)-R(I_-)$。 属性增益越大，控制属性的方法越强。 为了与图像空间翻译方法进行比较，我们使用 DRIT++ 和 RelGAN 生成额外的 $I_+$ 给定输入 $I_-$ 并计算它们之间的属性增益。 结果显示在表~\ref{tb:attrbute_gain}中。 我们的 ACGAN 的属性增益远高于其他方法，这证明我们的 ACGAN 对控制属性的能力最强。
+% To quantitatively evaluate our ACGAN on controlling attributes for natural scene synthesis, we use our ACGAN to generate $5,000$ image pairs $(I_-,I_+)$ for each attribute. $I_-$ means this attribute is "off" or "negative" and vice versa. We define attribute gain between $(I_-,I_+)$ computed by attribute regressor $R$ : attribute gain=$R(I_+)-R(I_-)$. The larger the attribute gain, the stronger the method is in controlling attributes. To compare with image-space translation methods, we use DRIT++ and RelGAN to generate extra $I_+$ given input $I_-$ and compute attribute gain between them. The results are shown in Table~\ref{tb:attrbute_gain}. The attribute gain of our ACGAN is much higher than the other methods, which proves that our ACGAN has the strongest power over controlling attributes. 
 
-我们对提议的框架进行了消融研究，以量化两个关键概念对整体性能的贡献。以下实验结果表明模态内注意力和模态间注意力都对改进我们的模型有效，我们由模态内注意力和模态间注意力组成的联合注意力为多模态图像转换任务产生了高质量的结果。
+\begin{table}[!t]
+    \caption{The attribute gain of our ACGAN is much higher than the other methods, which proves that our ACGAN has the strongest power over controlling attributes.}
+    \renewcommand\arraystretch{0.8}
+    \begin{center}
+    \begin{tabular}{lccccc}
+    %{lC{3.4cm}C{3.3cm}C{2.8cm}}
+    \toprule
+    & Clouds & Fog & Winter & Night & Sunny\\
+    \midrule
+    RelGAN & $0.1271$ & $0.1046$ & $0.1009$ & $0.1692$ & $0.1918$ \\
+%   \hdashline
+    \specialrule{0em}{1pt}{1pt}
+    DRIT++ & $0.1183$ & $0.0177$ & $0.1496$ & $0.1055$ & $0.0736$ \\
+%   \hdashline
+    \specialrule{0em}{1pt}{1pt}
+    \textbf{Ours} & $\textbf{0.3069}$ & $\textbf{0.2656}$ & $\textbf{0.5979}$ & $\textbf{0.2679}$ & $\textbf{0.3192}$ \\
+    \toprule
+    \end{tabular}
+    \end{center}
+    \label{tb:attrbute_gain}
+\end{table}
 
-我们采用不同的实验设置来验证每个模块的有效性：没有模态内注意力和模态间注意力的 JAGAN、没有模态内注意力的 JAGAN 和没有模态间注意力的 JAGAN。这些方法的一些结果如图~\ref{fig:ablation}所示。基准方法方法是没有 模态内注意力 和模态间注意力的转换网络。如图~\ref{fig:ablation}(a)所示，转换后的医学图像对比度不准确，肿瘤区域估计也不准确。合成面部表情 \textit{contemptuous} 更类似于 \textit{neutral}。通过添加模态间注意力，该模型可以更好地估计医学图像的肿瘤区域，以及更准确的面部表情的嘴巴和皱纹，如图~\ref{fig:ablation}(b) 所示。这表明模态间注意力可以有效地融合模态间互补信息。然而，细节并非模糊不清。图~\ref{fig:ablation}(c)是使用模态内注意力模块的基准方法模型的结果，估计的医学图像对比度更准确，面部图像的眼睛等细节纹理更逼真。这验证了模态内注意力可以提供更多的兼容性信息。通过结合 模态内注意力 和模态间注意力，如图~\ref{fig:ablation}(d) 所示，完整的 JAGAN 模型成功地为估计的医学图像生成了最准确的对比度和肿瘤区域，以及最逼真的面部纹理表达转换。
+\section{本章小结}
+在这项工作中，我们提出了一种用于图像属性编辑的语义可控 GAN。 为了更好地将每个属性方向与其他方向分开，我们将属性空间与隐空间隔离，并将其投影到正交空间。 提出了一个属性一致的损失来约束连续的属性一致性。 为了将我们的方法扩展到所有属性数据集，我们进一步提出了一种属性量化策略，将二进制属性标签量化为连续值。 实验证明我们的方法可以同时且连续地编辑具有高保真度和语义解开的多个属性。
+% In this work, we propose a semantic controllable GAN for image attribute editing. To better disentangle each attribute direction from other directions, we isolate an attribute space from the latent space and project it to the orthogonal space. An attribute-consistent loss is proposed to constrain the continuous attribute consistency. To extend our approach to all the attribute datasets, we further propose an attribute quantification strategy to quantify binary attribute labels to continuous values. Experiments prove our method can simultaneously and continuously edit multiple attributes with high fidelity and semantic disentanglement. 
 
-\begin{figure}
-	\begin{center}
-		\includegraphics[width=0.8\columnwidth]{figures/JAGAN/ablation.pdf}
-	\end{center}
-	\caption{消融实验. (a) 没有模态内注意力和模态间注意力的JAGAN实验结果。 (b) 没有模态内注意力的JAGAN实验结果。 (c) 没有模态间注意力的JAGAN实验结果。 (d) JAGAN的实验结果。(e) 真实图像。}
-	\label{fig:ablation}
-\end{figure}
-
-由于采用自表示网络来保持转换网络中间特征图的目标特定一致性。 在这里，我们探讨了自表示 (SR) 网络对不同编码器分支的卷积核的有效性。 如图~\ref{fig:ablation1}所示，在没有SR网络的情况下，由相应编码器分支从不同输入提取的特征图差异很大。 在SR网络的约束下，从同一个卷积核中提取的特征图满足具有相似外观的跨模态一致性。
-
-为了定量评测SR网络对转换网络的约束效果，利用t-SNE~\cite{maaten2008visualizing}将提取的特征图嵌入到二维空间中，如图~\ref{fig:regression}。每种颜色代表特征图源自的编码器分支。左子图显示了从没有 SR 网络约束的某个卷积核中提取的特征图的 t-SNE 分布，右子图显示了从同一卷积中提取的特征图的 t-SNE 分布具有 SR 网络约束的内核。我们从每个编码器中选择六个卷积核。对于多模态医疗人物/JAGAN，总共有四组输入和四个编码器。因此，每个子图中有 96 个点。如图~\ref{fig:ablation1}所示，使用SR网络训练的特征图分布比没有SR网络的特征图分布更接近。特征外观和 t-SNE 分布证明了所提出的跨模态一致性的有效性。
-
-\begin{figure}
-    \includegraphics[width=1\columnwidth]{figures/JAGAN/regression.png}
-	\caption{特征图的二维可视化。每个圆点表示一个特征图，不同的颜色表示其来源自不同的编码器分支。(a)是没有模态内注意力的结果， (b) 则是有模态内注意力的结果。}
-	\label{fig:regression}
-\end{figure}
-
-
-\section{本章小节}
-
-在本文中，我们提出了一种用于多模态图像转换的联合注意力 GAN。 我们的方法利用自编码器网络进行自监督学习，为多模态转换网络提供跨模态一致性指导。 我们将模态内兼容性、模态间互补性和跨模态一致性合并到一个统一的生成框架中。
-自表示学习框架利用来自多种模态的多方面信息。 设计的多分支编码器和模态掩码向量使我们的 JAGAN 能够在单个统一模型中生成任何缺失的模态，进一步保证其通用性。
-
-虽然我们提出的 JAGAN 与其他最先进的技术相比实现了卓越的性能，但存在一些局限性。例如，在训练阶段，所提出的框架需要更多的计算资源和计算时间。 未来，我们将探索更高效的网络架构。
+虽然我们提出的 ACGAN 与其他最先进的技术相比实现了卓越的性能，但存在一些局限性。 例如，相似的属性可能会导致回归错误。 例如，灰色头发和苍白皮肤具有相似的颜色，这可能导致这些属性难以解开。 此外，真实图像编辑取决于 GAN 反演的结果，这通常需要复杂的 GAN 架构。 我们使用过的 StyleGAN2-mini 仍然需要大量的时间。 未来，我们将探索更高效的回归器和 GAN 架构。
+% While our proposed ACGAN achieves superior performance compared to other state-of-the-arts, there are several limitations. For instance, similar attributes may lead to regression errors. For example, Gray Hair and Pale Skin have similar colors, which may cause these attributes hard to disentangle. Besides, real image edits depend on the result of GAN inversion, which most often requires complex GAN architecture. Our used StyleGAN2-mini still takes huge time consumption. In the future, we would explore more efﬁcient regressor and GAN architecture.
