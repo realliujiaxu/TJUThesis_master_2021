@@ -177,7 +177,8 @@ JAGAN由转换网络和子表示网络组成。
 	\begin{center}
 		\includegraphics[width=1\columnwidth]{figures/JAGAN/comparsion_medical.pdf}
 	\end{center}
-	\caption{Comparison results of our approach, Pix2Pix, StarGAN and CollaGAN on BraTS2020 database. The yellow numbers are the SSIM and FSIM scores. The arrows point out the remarkable parts of the results. For Pix2Pix and StarGAN, the pseudo T1/T1Gd/T2 figures/JAGAN are translated from a T2-FLAIR image, and the T2-FLAIR image is translated from T1Gd. Our JAGAN generates any target modality by the remaining three modalities.}
+	% \caption{Comparison results of our approach, Pix2Pix, StarGAN and CollaGAN on BraTS2020 database. The yellow numbers are the SSIM and FSIM scores. The arrows point out the remarkable parts of the results. For Pix2Pix and StarGAN, the pseudo T1/T1Gd/T2 figures/JAGAN are translated from a T2-FLAIR image, and the T2-FLAIR image is translated from T1Gd. Our JAGAN generates any target modality by the remaining three modalities.}
+	\caption{我们的方法、Pix2Pix、StarGAN 和 CollaGAN 在 BraTS2020 数据库上的比较结果。 黄色数字是 SSIM 和 FSIM 分数。 箭头指出了结果的显着部分。 对于 Pix2Pix 和 StarGAN，生成的T1/T1Gd/T2模态图像是从真实的T2-FLAIR模态图像转换而来，T2-FLAIR模态图像则是从T1Gd模态转换而来。 我们的JAGAN是通过其余三种模态生成目标模态。}
 	\label{fig:comparsion_medical}
 \end{figure}
 
@@ -210,7 +211,7 @@ JAGAN由转换网络和子表示网络组成。
 \end{figure}
 
 
-\section{本章小节}
+\section{本章总结}
 
 在本文中，我们提出了一种用于多模态图像转换的联合注意力 GAN。 我们的方法利用自编码器网络进行自监督学习，为多模态转换网络提供跨模态一致性指导。 我们将模态内兼容性、模态间互补性和跨模态一致性合并到一个统一的生成框架中。
 自表示学习框架利用来自多种模态的多方面信息。 设计的多分支编码器和模态掩码向量使我们的 JAGAN 能够在单个统一模型中生成任何缺失的模态，进一步保证其通用性。

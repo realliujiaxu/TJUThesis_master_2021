@@ -2,12 +2,12 @@
 
 \section{生成式对抗网络的前世今生}
 
-生成式对抗网络（Generative Adversarial Networks， GANs）自2014年由Goodfellow等人提出以来~\cite{GANs}，一直是深度学习领域的热门研究方向。仅在2018年，就出现了大约11800与GANs相关的论文。换句话说，每天约有32篇，不到一个小时就有一篇相关论文问世\cite{review}。本节我将按时间顺序，以GANs领域中若干个重要工作为节点，从GANs的萌芽、发展与最新进展三个阶段，阐述GANs的发展历程及其应用。
+生成式对抗网络（Generative Adversarial Networks， GANs）自2014年由Goodfellow等人提出以来~\cite{GANs}，一直是深度学习领域的热门研究方向。仅在2018年，就出现了大约11800篇与GANs相关的论文。换句话说，每天约有32篇，不到一个小时就有1篇相关论文问世\cite{review}。本节我将按时间顺序，以GANs领域中若干个经典工作为节点，从GANs的萌芽、发展与最新进展三个阶段，阐述GANs的发展历程及其应用。
 
 \subsection{萌芽：机器学习领域十年来最有趣的思想}
 机器学习模型分为判别式模型和生成式模型，Goodfellow等人提出的GANs正是一种生成式模型。相比于之前的生成式模型，GANs最大的贡献在于提出了一种基于对抗的训练方式。GANs由两个网络组成，分别是生成器和判别器。其中生成器将输入映射到目标空间，从而捕捉目标空间的数据分布；判别器一般是一个二值分类器，用于区分判断生成器生成的图片和数据集中真实的图片。GANs训练过程是一个交替优化生成器和判别器的过程，在这个过程中，生成器的目标是生成可以骗过判别器的图片，判别器的目标则是尽可能区分生成图片与真实图片。详细的训练过程将在第二章介绍。
 
-原始GANs的输入是高斯噪声，这也就意味着你无法控制生成图像的类别，在这种情况下，如果需要生成猫和狗两类图片，只能在猫图片数据集和狗图片数据集上分别训练GANs。为了解决这个问题，Mehdi Mirza等人提出了条件生成式对抗网络(Conditional GANs, CGANs)~\cite{CGANs}。同时，我们也将最初的这类输入不含标签的GANs称为非条件生成式对抗网络(unconditional GANs)。如图\ref{CGAN-result}所示，CGAN可以控制生成器生成指定的手写数字。
+原始GANs的输入是高斯噪声，这也就意味着你无法控制生成图像的类别，在这种情况下，如果需要生成猫和狗两类图片，只能在猫图片数据集和狗图片数据集上分别训练GANs。为了解决这个问题，Mehdi Mirza等人提出了条件生成式对抗网络(Conditional GANs, cGANs)~\cite{CGANs}。同时，我们也将最初的这类输入不含标签的GANs称为非条件生成式对抗网络(unconditional GANs)。如图\ref{CGAN-result}所示，CGAN可以控制生成器生成指定的手写数字。
 
 \begin{figure}
     \centering
@@ -16,7 +16,7 @@
     \label{CGAN-result}
 \end{figure}
 
-无论是GANs还是CGANs，此时仍受图像生成质量不高导致的实用价值不高的困扰。随着深度学习的发展，Alec Radford等人在2016年提出了使用卷积神经网络替换GANs中的多层感知机~\cite{DCGAN}，大大提升了生成图像的质量。由于GANs已经广泛作为生成式对抗网络的概念使用，下文将称这Goodfellow等人提出的GANs模型为原始GANs。如图~\ref{GAN-DCGAN}所示，原始GANs生成的人像、自然图像质量都较差；而DCGAN能够生成较高质量的卧室图片。
+无论是GANs还是cGANs，此时仍受图像生成质量不高导致的实用价值不高的困扰。随着深度学习的发展，Alec Radford等人在2016年提出了使用卷积神经网络替换GANs中的多层感知机~\cite{DCGAN}，大大提升了生成图像的质量。由于GANs已经广泛作为生成式对抗网络的概念使用，下文将称这Goodfellow等人提出的GANs模型为原始GANs。如图~\ref{GAN-DCGAN}所示，原始GANs生成的人像、自然图像质量都较差；而DCGAN能够生成较高质量的卧室图片。
 
 \begin{figure}
     \centering
@@ -35,7 +35,7 @@
 \end{itemize}
 
 \subsection{发展：迈向以假乱真的真实图像和实际应用}
-由于高分辨率图像包含更多细节，判别器更容易将生成的图像与真实图像区分开来，因此在高分辨率下训练GANs是一件很困难的事。除此之外，由于显存的限制，我们在高分辨率是只能使用较小的batch size，这进一步损害了训练时的稳定性。Odena等人在2017年提出PGGAN（Progressive Growing OF GANS）~\cite{PGGAN}，作者认为可以从更简单的低分辨率图像开始逐步增加生成器和鉴别器，并随着训练的进行添加引入更高分辨率细节的新层。这种渐进式的训练方式大大加快了训练速度并提高了高分辨率下的稳定性。
+由于高分辨率图像包含更多细节，判别器更容易将生成的图像与真实图像区分开来，因此在高分辨率下训练GANs是一件很困难的事。除此之外，由于显存的限制，我们在高分辨率是只能使用较小的批大小（batch size），这进一步损害了训练时的稳定性。Odena等人在2017年提出PGGAN（Progressive Growing OF GANs）~\cite{PGGAN}，作者认为可以从更简单的低分辨率图像开始逐步增加生成器和鉴别器，并随着训练的进行添加引入更高分辨率细节的新层。这种渐进式的训练方式大大加快了训练速度，并提高了高分辨率下的稳定性。
 
 时间来到2019年，BigGANs~\cite{BigGANs}探索了CGANs如何通过训练更大的模型提高生成图像的质量，StyleGAN~\cite{StyleGAN}则展示了GANs如何生成风格各异的图像。BigGANs和StyleGAN的生成结果分别如图~\ref{BigGAN}和图~\ref{StyleGAN}所示，可以看到无论是GANs（StyleGAN）还是CGANs（BigGANs），生成的图像都达到了“以假乱真”的程度。
 
