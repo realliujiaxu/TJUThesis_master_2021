@@ -11,7 +11,9 @@
                                                      % 本科生毕业论文通常采用单页排版
 \input{setup/package}                                % 定义本文所使用宏包
 \graphicspath{{figures/}}                            % 定义所有的图像文件在 figures 子目录下
+\usepackage{makecell}
 \begin{document}                                     % 开始全文
+\renewcommand{\algorithmcfname}{算法}
 \input{setup/format}                       % 完成对论文各个部分格式的设置
 \frontmatter                               % 以下是论文导言部分，包括论文的封面，中英文摘要和中文目录
 \input{preface/cover}                      % 封面
@@ -29,8 +31,12 @@
 %%%%%%%%%% 正文部分内容  %%%%%%%%%%
 \mainmatter\defaultfont\sloppy\raggedbottom
 \include{body/chapter_1}
-\clearpage{\pagestyle{empty}\cleardoublepage} % 去除空白页的页眉页脚（每章从奇数页开始，因此有空白页）
+%\clearpage{\pagestyle{empty}\cleardoublepage} % 去除空白页的页眉页脚（每章从奇数页开始，因此有空白页）
 \include{body/chapter_2}
+%\clearpage{\pagestyle{empty}\cleardoublepage}
+\include{body/chapter_3}
+%\clearpage{\pagestyle{empty}\cleardoublepage}
+\include{body/chapter_4}
 \clearpage{\pagestyle{empty}\cleardoublepage}
 \include{body/conclusion}
 \clearpage{\pagestyle{empty}\cleardoublepage}
