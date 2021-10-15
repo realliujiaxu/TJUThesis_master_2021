@@ -12,17 +12,17 @@
 \begin{figure}
     \centering
     \includegraphics[width=\textwidth]{figures/CGAN-result.pdf}
-    \caption{CGAN可以生成指定手写数字的类别。从上至下，CGAN生成了0-9总共10中类别的手写数字。}
+    \caption{cGANs指定生成手写数字}
     \label{CGAN-result}
 \end{figure}
 
-无论是GANs还是cGANs，此时仍受图像生成质量不高导致的实用价值不高的困扰。随着深度学习的发展，Alec Radford等人在2016年提出了使用卷积神经网络替换GANs中的多层感知机~\cite{DCGAN}，大大提升了生成图像的质量。由于GANs已经广泛作为生成式对抗网络的概念使用，下文将称这Goodfellow等人提出的GANs模型为原始GANs。如图~\ref{GAN-DCGAN}所示，原始GANs生成的人像、自然图像质量都较差；而DCGAN能够生成较高质量的卧室图片。
+无论是GANs还是cGANs，此时仍受图像生成质量不高导致的实用价值不高的困扰。随着深度学习的发展，Alec Radford等人在2016年提出了使用卷积神经网络替换GANs中的多层感知机~\cite{DCGAN}，大大提升了生成图像的质量。由于GANs已经广泛作为生成式对抗网络的概念使用，下文将称这Goodfellow等人提出的GANs模型为原始GANs。如图~\ref{fig:GAN-DCGAN}所示，原始GANs生成的人像、自然图像质量都较差；而DCGAN能够生成较高质量的卧室图片。
 
 \begin{figure}
     \centering
     \includegraphics[width=\textwidth]{figures/GAN-DCGAN.pdf}
     \caption{GANs和DCGAN的生成效果对比}
-    \label{GAN-DCGAN}
+    \label{fig:GAN-DCGAN}
 \end{figure}
 
 至此，生成式对抗网络完成了它的萌芽阶段，其框架已经确定，最近的GANs模型基本都在这一框架内：
@@ -35,22 +35,25 @@
 \end{itemize}
 
 \subsection{发展：迈向以假乱真的真实图像和实际应用}
-由于高分辨率图像包含更多细节，判别器更容易将生成的图像与真实图像区分开来，因此在高分辨率下训练GANs是一件很困难的事。除此之外，由于显存的限制，我们在高分辨率是只能使用较小的批大小（batch size），这进一步损害了训练时的稳定性。Odena等人在2017年提出PGGAN（Progressive Growing OF GANs）~\cite{PGGAN}，作者认为可以从更简单的低分辨率图像开始逐步增加生成器和鉴别器，并随着训练的进行添加引入更高分辨率细节的新层。这种渐进式的训练方式大大加快了训练速度，并提高了高分辨率下的稳定性。
+由于高分辨率图像包含更多细节，判别器更容易将生成的图像与真实图像区分开来，因此在高分辨率下训练GANs是一件很困难的事。除此之外，由于显存的限制，我们在高分辨率下只能使用较小的批大小（batch size），这进一步损害了训练时的稳定性。Odena等人在2017年提出PGGAN（Progressive Growing OF GANs）~\cite{PGGAN}，作者认为可以从更简单的低分辨率图像开始逐步增加生成器和鉴别器，并随着训练的进行添加引入更高分辨率细节的新层。这种渐进式的训练方式大大加快了训练速度，并提高了高分辨率下的稳定性。
 
-时间来到2019年，BigGANs~\cite{BigGANs}探索了CGANs如何通过训练更大的模型提高生成图像的质量，StyleGAN~\cite{StyleGAN}则展示了GANs如何生成风格各异的图像。BigGANs和StyleGAN的生成结果分别如图~\ref{BigGAN}和图~\ref{StyleGAN}所示，可以看到无论是GANs（StyleGAN）还是CGANs（BigGANs），生成的图像都达到了“以假乱真”的程度。
+时间来到2019年，BigGANs~\cite{BigGANs}探索了CGANs如何通过训练更大的模型提高生成图像的质量，StyleGAN~\cite{stylegan}则展示了GANs如何生成风格各异的图像。BigGANs和StyleGAN的生成结果分别如图~\ref{fig:BigGAN}和图~\ref{fig:StyleGAN}所示。
+图~\ref{fig:StyleGAN}最上面一行与最左边一列是StyleGAN生成的不同风格的人像，中间则是两种风格混合后生成的人像。作者将这种风格混合生成人像的功能称为style mixing。
+可以看到无论是GANs（StyleGAN）还是cGANs（BigGANs），生成的图像都达到了“以假乱真”的程度。
 
 \begin{figure}
     \centering
     \includegraphics[width=\textwidth]{figures/BigGAN.pdf}
-    \caption{BigGANs的512x512分辨率下的生成图像，可以看到生成的图像种类丰富且非常真实，但放大后仍可看出些许涂抹感。}
-    \label{BigGAN}
+    \caption{BigGANs的512x512分辨率下的生成图像}
+    % 可以看到生成的图像种类丰富且非常真实，但放大后仍可看出些许涂抹感。
+    \label{fig:BigGAN}
 \end{figure}
 
 \begin{figure}
     \centering
     \includegraphics[width=\textwidth]{figures/StyleGAN.pdf}
-    \caption{StyleGAN的生成结果。最上面一行与最左边一列是StyleGAN生成的不同风格的人像，中间则是两种风格混合后生成的人像。作者将这种风格混合生成人像的功能称为style mixing。}
-    \label{StyleGAN}
+    \caption{StyleGAN的生成结果}
+    \label{fig:StyleGAN}
 \end{figure}
 
 
@@ -65,7 +68,7 @@ GANs很早就被用于图片转换（image translation），即将原域的图�
 
 \section{问题和挑战}
 
-据我们所知，现有的隐空间编辑均是：1.在预训练的GANs上搜索隐空间中属性对应的语义方向；2.在对应的语义方向上对隐变量进行向量运算。这类方法在做属性编辑时存在语义耦合的问题，即在改变某一属性时，其他属性也发生了变化。
+据我们所知，现有的隐空间编辑多是：1.在预训练的GANs上搜索隐空间中属性对应的语义方向；2.在对应的语义方向上对隐变量进行向量运算。这类方法在做属性编辑时存在语义耦合的问题，即在改变某一属性时，其他属性也发生了变化。
 
 在多模态图像变换方面，现有的基于GANs的方法没有充分利用模态间的一致性与互补性，这导致生成的目标模态图像出现信息损失。多模态数据广泛存在临床诊断等领域，缺失的信息可能会影响医生的决策。
 
@@ -73,7 +76,7 @@ GANs很早就被用于图片转换（image translation），即将原域的图�
 
 本文全面分析了GANs在属性编辑和多模态图像转换上遇到的问题和挑战，提供相应的解决方法：
 
-（1）为了解决隐空间属性编辑语义耦合的问题，我们提出属性一致性网络。将输入隐变量分解为内容变量和属性变量，其中属性变量位于预定义的正交属性空间中，从而在理论上保证了属性编辑时的语义解耦。
+（1）为了解决隐空间属性编辑语义耦合的问题，我们提出属性一致性网络。将输入隐变量分解为内容变量和属性变量，其中属性变量位于预定义的正交属性空间中，从而尽量保证了属性编辑时的语义解耦。
 
 （2）针对现有的基于GANs的多模态图像变换方法没有充分利用模态间的一致性与互补性的问题，我们提出联合注意力机制，在模型训练期间充分挖掘模态间的一致性与互补性，显著提高了多模态图像转换的质量与准确性。
 

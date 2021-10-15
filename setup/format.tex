@@ -212,6 +212,8 @@
 \def\cauthortitle#1{\def\@cauthortitle{#1}}\def\@cauthortitle{}
 \def\csupervisor#1{\def\@csupervisor{#1}}\def\@csupervisor{}
 \def\csupervisortitle#1{\def\@csupervisortitle{#1}}\def\@csupervisortitle{}
+\def\ccorsupervisor#1{\def\@ccorsupervisor{#1}}\def\@ccorsupervisor{}
+\def\ccorsupervisortitle#1{\def\@ccorsupervisortitle{#1}}\def\@ccorsupervisortitle{}
 \def\cfirstsubject#1{\def\@cfirstsubject{#1}}\def\@cfirstsubject{}   % “一级学科”
 \def\cfirstsubjecttitle#1{\def\@cfirstsubjecttitle{#1}}\def\@cfirstsubjecttitle{} % 一级学科名称
 \def\teachertable#1{\def\@teachertable{#1}}\def\@teachertable{}  % 答辩老师表格
@@ -294,6 +296,7 @@
         \@put@covertitle{\@csubjecttitle} & \@csubject \\
         \@put@covertitle{\@cauthortitle} & \@cauthor \\
         \@put@covertitle{\@csupervisortitle} & \@csupervisor \\
+        \@put@covertitle{\@ccorsupervisortitle} & \@ccorsupervisor \\
       \end{tabular}
       }
       
@@ -301,7 +304,7 @@
       {\@teachertable}
 
 
-  \vspace*{2cm}
+  \vspace*{1.5cm}
   \song\sihao\@caffil \\
   \song\sihao\@cdate
 

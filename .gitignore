@@ -6,3 +6,7 @@ tjumain.pdf
 tjumain.synctex.gz
 tjumain.thm
 tjumain.toc
+tjumain.bbl
+tjumain.blg
+figures/~*
+figures/*/~*
