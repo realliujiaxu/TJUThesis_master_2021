@@ -4,7 +4,7 @@
 
 \section{引言}
 
-图像处理、计算机视觉和计算机图形学等越来越多的应用开始依赖于多模态图像，如在精准医学领域，脑部核磁共振可以得到T1加权成像（T1）、Gd造影剂成像(T1Gd)、T2加权成像 （T2 ）和液体衰减反转恢复序列成像（T2-FLAIR）四种模态~\cite{drevelegas2011imaging}，医生希望尽可能结合完整的多模态医学图像来做出更精确的诊断，但往往受限于实际条件（医疗条件有限、扫描时间不足以及成本/支出/资源等限制），在多模态数据获取过程中可能出现系统误差，甚至部分模态的缺失~\cite{tanenbaum2017synthetic}等情况。这些不可用的模态图像可能会导致医生决策出现偏差。
+图像处理、计算机视觉和计算机图形学等越来越多的应用开始依赖于多模态图像，如在精准医学领域，脑部核磁共振可以得到T1加权成像（T1）、Gd造影剂成像(T1Gd)、T2加权成像 （T2 ）和液体衰减反转恢复序列成像（T2-FLAIR）四种模态~\cite{drevelegas2011imaging}。医生希望尽可能结合完整的多模态医学图像来做出更精确的诊断，但往往受限于实际条件（医疗条件有限、扫描时间不足以及成本/支出/资源等限制），在多模态数据获取过程中可能出现系统误差，甚至部分模态的缺失~\cite{tanenbaum2017synthetic}等情况。这些不可用的模态图像可能会导致医生决策出现偏差。
 
 由于我们在实践中经常会遇到低质量甚至缺失的模态图像，如何利用已有的、完整的模态图像数据对不可用的模态进行填补，已成为计算机视觉和图像处理中的一个重要研究课题。除了可用的图像数据外，医生还可以使用填补的缺失模态数据辅助决策。
 
@@ -42,7 +42,7 @@ CollaGAN的缺点在于没有针对跨模态一致性和模态间互补性进行
 
 \begin{figure}
     \centering
-    \includegraphics[width=1\columnwidth]{figures/JAGAN/framework.pdf}
+    \includegraphics[width=0.7\textwidth]{figures/JAGAN/framework.pdf}
     \caption[aaa]{JAGAN框架图}
     \label{f1}
 \end{figure}
@@ -68,7 +68,7 @@ $SR$ 以通道为粒度驱动 $\mathcal{T}$ 进行训练：
 
 \begin{figure}
 	\centering
-	\includegraphics[width=0.8\columnwidth]{figures/JAGAN/20201109InterAttention_function_AV1_0.pdf}
+	\includegraphics[width=0.5\textwidth]{figures/JAGAN/20201109InterAttention_function_AV1_0.pdf}
 	\caption[]{模态间注意力机制的注意力矩阵计算过程}
 	\label{f2}
 \end{figure}
@@ -89,7 +89,7 @@ $SR$ 以通道为粒度驱动 $\mathcal{T}$ 进行训练：
 
 \begin{figure}
 	\centering
-	\includegraphics[width=0.8\columnwidth]{figures/JAGAN/20201109InterAttention_function_BV1_0.pdf}
+	\includegraphics[width=0.5\textwidth]{figures/JAGAN/20201109InterAttention_function_BV1_0.pdf}
 	\caption[aaa]{信息互补的过程} 
 	\label{fig:Complementary}
 \end{figure}
@@ -102,7 +102,7 @@ JAGAN由转换网络和子表示网络组成。
 \begin{align}
 	\mathcal{L}_G = \mathcal{L}_{L1} + \mathcal{L}_{GAN} + \lambda  \cdot \mathcal{L}_{intra}^{SR}
 \end{align}
-其中 $\mathcal{L}_{L1}$ 和 $\mathcal{L}_{GAN}$ 都是在 pix2pix 中定义的，$\lambda$ 是 $\mathcal{L}_{intra}^{SR}$ 的权重。
+其中 $\mathcal{L}_{L1}$ 和 $\mathcal{L}_{GAN}$ 都是在 Pix2Pix~\cite{pix2pix} 中定义的，$\lambda$ 是 $\mathcal{L}_{intra}^{SR}$ 的权重。
 
 \textbf{转换网络} 转换网络由一个生成器和一个鉴别器组成。 我们采用70 × 70的PatchGANs\cite{pix2pix} 作为我们的鉴别器网络和来自 \cite{perceptual} 的架构用于我们的生成器。该网络包含三个用于特征提取和下采样的卷积，几个用于特征变换的残差块，以及三个用于上采样的卷积。为了适应多模态输入，我们重复构造前三个卷积 $\{Conv_1, Conv_2, Conv_3\}$ $n$ 次，形成一个多分支编码器，其中 $n$ 是输入模态的数量，$ Conv_k$ 表示第 $k$ 个卷积，每个分支以$E_i$表示。 我们将模态内注意力模块添加到 $Conv_2$ 和 $Conv_3$之间，并将模态间注意力 注意力添加到 $Conv_3$之后。为了使模型能够接收任何三种模态作为输入，我们在每个输入图像中添加目标模态的one-hot编码的mask\cite{stargan}\cite{collagan}。
 
@@ -138,14 +138,14 @@ JAGAN由转换网络和子表示网络组成。
 
 \subsection{对比实验}
 
-最近提出了各种基于 GAN 的图像转换方法。 在这些方法中，Pix2Pix~\cite{pix2pix} 是一种基于 cGAN 的方法，它是我们模型的基本架构，StarGAN~\cite{stargan} 和 CollaGAN~\cite{collagan} 提出了目标模态掩码向量和循环- 一致损失~\cite{cyclegan} 到多模态图像转换任务。因此，我们在下面的实验中将我们的方法与 Pix2Pix、StarGAN 和 CollaGAN 进行比较。
+计算机视觉领域中最近涌现了各种基于 GAN 的图像转换方法， 在这些方法中，Pix2Pix~\cite{pix2pix} 是一种基于 cGAN 的方法，同时也是我们模型的基本架构；StarGAN~\cite{stargan} 和 CollaGAN~\cite{collagan} 针对多模态图像转换任务提出了目标模态掩码向量和循环一致性损失~\cite{cyclegan}。因此，我们在下面的实验中将我们的方法与 Pix2Pix、StarGAN 和 CollaGAN 进行比较。
 
 \subsubsection{MR图像转换对比}
 为了评测我们所提出的方法在多模态医学图像转换上的性能，我们用Brats2020训练集中的所有数据来训练自表示网络，并从Brats2020训练集中采样三种模态的所有可能组合，作为转换网络的输入，我们可以通过这三种输入模态生成任何缺失的模态。 Pix2Pix和StarGAN只适合单个输入，考虑到 因为 T2-FLAIR 提供的肿瘤实质和水肿区域明显大于其他三种模态，我们选择 T2-FLAIR 作为输入生成 T1、T1Gd、T2模态，T2-FLAIR模态图像则是从T1Gd模态转换而来。 CollaGAN 遵循与我们相同的实验设置。
 
 图~\ref{fig:comparsion_medical}展示了我们的方法、Pix2Pix、StarGAN 和 CollaGAN 在 BraTS2020 数据库上的比较结果。图中黄色的数字是 SSIM 和 FSIM 分数（用斜线分割）， 我们用黄色箭头指出了结果的重点区域。StarGAN和CollaGAN的结果在转换T1Gd、T2和T2-FLAIR时整体观感较差，具体体现在软组织细节不清晰，对比度不准确。虽然 CollaGAN 生成了较好的肿瘤纹理，但结果嘈杂，严重降低了整体观感。 Pix2Pix 在生成 T2 和 T2-FLAIR 方面比 StarGAN 和 CollaGAN 产生更好的纹理细节，但 Pix2Pix 的结果对比不明显。与这些方法相比，我们的 JAGAN 显示出清晰的软组织纹理和明显的肿瘤病变区域。
 
-对于定量评测，我们在每个转换样本的右下角显示了平均 SSIM 和 FSIM 分数。这些报告的评测分数由转换后的图像和相应的真实图像计算得出。现有方法忽略了多模态图像中的互补信息，从而降低了定量分数。我们的 JAGAN 在完整的医学图像转换任务集上取得了最高的 SSIM 和 FSIM 分数。
+对于定量评测，我们在每个转换样本的右下角展示了平均 SSIM 和 FSIM 分数。这些报告的评测分数由转换后的图像和相应的真实图像计算得出。现有方法忽略了多模态图像中的互补信息，从而降低了定量分数。我们的 JAGAN 在完整的医学图像转换任务集上取得了最高的 SSIM 和 FSIM 分数。
 
 请注意，由于输入限制，本实验中对 Pix2Pix 和 StarGAN 进行了多次训练。 CollaGAN 占用的计算资源比我们的多得多，但获得的结果却很模糊。作为比较，我们的 JAGAN 可以通过统一模型中的剩余数据生成任何目标医疗模态。该实验中的定量和定性比较通过显示更精确和更现实的结果证明了我们方法的优越性。
 

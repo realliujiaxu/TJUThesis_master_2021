@@ -1,34 +1,29 @@
 \chapter{基于生成式对抗网络的图像编辑}
 
-最近的研究表明，生成对抗网络(GANs) 可以生成具有不同属性的逼真图像。为了精确控制生成图像的每种属性，当前的方法在预训练模型的隐空间中搜索语义方向。由于生成模型是在没有属性标签监督的情况下训练的，因此这些方法会产生语义耦合。为了解决这些问题，我们将可控语义方向投影到正交空间，同时训练基于属性的生成模型，提出了属性一致生成对抗网络，称为 ACGAN。具体来说，我们首先设计了一种属性量化方法来获得连续标签。用连续标签训练属性回归器，该回归器最终用于约束输入属性变量和生成结果之间的属性一致性。我们将隐变量分解为内容变量和属性变量。属性变量位于正交空间中，从而在理论上保证属性之间的解耦。实验结果表明，所提出的方法在生成具有多个可控属性的逼真图像方面具有优越性。
-
 \section{引言}
 
-生成式对抗网络~\cite{GANs}以对抗方式训练生成器和鉴别器，从而对目标数据分布建模。当模型收敛时，生成器将从隐空间采样的隐变量映射到图像空间。最新的深度生成模型在生成逼真的图像方面取得了巨大进步，这些图像甚至与现实世界的照片无法区分。然而，GANs模型本身无法编辑生成图像的语义属性，比如操纵人像的年龄或场景图片的天气。
+生成式对抗网络~\cite{GANs}以一种对抗的方式训练生成器和鉴别器，从而对目标数据分布建模。当模型收敛时，生成器将从隐空间采样的隐变量映射到图像空间。最新的深度生成模型在生成逼真的图像方面取得了巨大进步，这些图像甚至与现实世界的照片无法区分。然而，GANs模型本身无法编辑生成图像的语义属性，比如操纵人像的年龄或场景图片的天气。
 
 图像编辑可用于图像增强、动画设计等专业领域。目前基于GANs的图像编辑方法可以分为两类：图像空间编辑方法和隐空间编辑方法。图像空间编辑方法~\cite{cyclegan,i2i0,i2i1,i2i2} 将一张图像从源域直接转换到目标域。这些方法必须学习大量的冗余模型，因为每两个域之间的转换需要一个模型。这对于多属性编辑任务来说是灾难性的。
-隐空间编辑方法侧重于在预训练的GANs的隐空间中搜索与语义相关的方向。这类方法按照监督信息可以进一步分为：无监督方法~\cite{icml2020,harkonen2020ganspace}、自监督方法~\cite{steer,variation} 和监督方法~\cite{interfacegan,iclr2021}。这类方法在做属性编辑时存在语义耦合的问题，改变一种属性通常伴随着其他属性的改变。语义耦合的根本原因在于，隐空间编辑方法所使用的预训练GANs在训练时没有受到属性的约束，其隐空间天然存在属性耦合。
+隐空间编辑方法侧重于在预训练的GANs的隐空间中搜索与语义相关的方向。这类方法按照监督信息可以进一步分为：无监督方法~\cite{icml2020,harkonen2020ganspace}、自监督方法~\cite{steer,variation} 和监督方法~\cite{interfacegan,iclr2021}。这类方法在做属性编辑时存在语义耦合的问题，改变一种属性通常伴随着其他属性的改变。语义耦合的根本原因在于，隐空间编辑方法所使用的预训练GANs在训练时没有受到属性的约束，其隐空间天然存在语义耦合。
 
 为了从根本上解决这个问题，我们提出了一种输入属性与生成图像属性一致的生成式对抗网络，简称为属性一致的生成式对抗网络（Attribute Consistent Generative Adversarial Networks， ACGAN），用于图像属性编辑。
-与现有方法不同，我们将隐空间分解为内容空间和属性空间。
-输入的隐变量由分别从内容空间（服从高斯分布）和属性空间（服从均匀分布）中采样的内容变量和属性变量组成。由于隐空间编辑方法发现的语义方向是耦合的，因此我们提出将属性空间投影到正交空间，以便将每个语义方向与其他方向分开。为了将可控语义方向投影到正交属性空间，我们进一步提出了一种属性一致损失，约束了生成图像的预测属性与输入属性变量之间的连续一致性。
+与现有方法不同，我们将隐空间分解为内容空间和属性空间：输入的隐变量由分别从内容空间（服从高斯分布）和属性空间（服从均匀分布）中采样的内容变量和属性变量组成。由于隐空间编辑方法发现的语义方向是耦合的，因此我们提出将属性空间投影到正交空间，以便将每个语义方向与其他方向分开。为了将可控语义方向投影到正交属性空间，我们进一步提出了一种属性一致损失，约束了生成图像的预测属性与输入属性变量之间的连续一致性。
 然而，据我们所知，目前只有一个数据集Transient Attribute Database~\cite{scenedataset} 包含连续的属性标签，而大多数图像属性数据集~\cite{celeba,place,sun} 只包含二值标签。为了将我们的方法扩展到所有属性数据集，我们进一步提出了一种属性量化策略，将二值属性标签量化为连续值。
 
 我们的属性一致性生成式对抗网络具有以下优点：
 \begin{enumerate}
-    \item \textbf{正交属性空间} 将属性映射到预定义的正交空间。每个基向量在正交属性空间中的坐标表示属性强度。
-    \item \textbf{属性一致性} 生成图像的预测属性值与输入属性变量一致，有效将可控语义方向投影到正交属性空间。
-    \item \textbf{连续属性量化} 为了将我们的方法应用于更常见的二值属性数据集，我们计了一种属性量化策略来获得连续属性伪标签，可以灵活地与许多现有方法集成以提高编辑性能。
-    \item \textbf{统一范式} 在隐空间和生成模型中全面优化属性可控方向。通过增加可控参数来提高生成模型的属性敏感性。
+    \item \textbf{正交属性空间：} 将属性映射到预定义的正交空间。每个基向量在正交属性空间中的坐标表示属性强度。
+    \item \textbf{属性一致性：} 生成图像的预测属性值与输入属性变量一致，有效将可控语义方向投影到正交属性空间。
+    \item \textbf{连续属性量化：} 为了将我们的方法应用于更常见的二值属性数据集，我们计了一种属性量化策略来获得连续属性伪标签，可以灵活地与许多现有方法集成以提高编辑性能。
+    \item \textbf{统一范式：} 在隐空间和生成模型中全面优化属性可控方向。通过增加可控参数来提高生成模型的属性敏感性。
 \end{enumerate}
 
 \section{属性一致性的生成式对抗网络}
 
 \subsection{概述}
-目前，大多数隐空间编辑方法都存在属性耦合的问题，因为它们不能保证发现的方向独立，这不可避免地导致隐空间中的语义耦合。
-这个问题提供了我们方法背后的主要直觉。也就是说，我们的目标是学习易于相互区分的正交属性方向。
-我们试图通过将属性方向投影到正交空间中，并将隐代码分解为内容代码和正交属性代码来实现这一目标。
-具体来说，我们提出了一种通过正交属性一致性进行图像编辑的语义可控 GAN（ACGAN），如图~\ref{fig:framework}所示。 在（a）中，方向搜索方法~\cite{icml2020, iclr2021}找到的方向是通过比较原始图像和编辑图像的属性差异来完成的，搜索到的方向互相耦合。图（b）中我们的方法使用输入属性值和生成图像的预测属性之间的属性一致损失来训练生成器。 我们预定义的方向是正交的，以便将每个语义方向与其他方向分开。
+目前，大多数隐空间编辑方法都存在属性耦合的问题，因为它们不能保证发现的方向独立，这不可避免地导致隐空间中的语义耦合。为了从根本上解决属性耦合的问题，我们将生成器的隐变量分解为内容变量和属性变量，并将属性方向投影到正交空间中。
+具体来说，我们提出了一种通过正交属性一致性进行图像编辑的属性一致生成式对抗网络（ACGAN），如图~\ref{fig:framework}所示。 在图~\ref{fig:framework}（a）中，方向搜索方法~\cite{icml2020, iclr2021}找到的方向是通过比较原始图像和编辑图像的属性差异来完成的，搜索到的方向互相耦合。图~\ref{fig:framework}（b）中我们的方法使用输入属性值和生成图像的预测属性之间的属性一致损失来训练生成器。 我们预定义的方向是正交的，以便将每个语义方向与其他方向分开。
 这从根本上解决了隐空间编辑中的属性耦合问题，使同时编辑多种属性成为可能。
 
 \begin{figure}
@@ -82,12 +77,12 @@ $sigmoid$会将$R_c(I_k)$推至接近于0或1的值。
   \label{fig:quantization}
 \end{figure}
 
-\subsection{属性一致性GAN}
-我们的ACGAN可以基于任意的unconditional GANs实现。ACGAN由3部分构成：生成器、判别器和属性回归器。我们保持判别器的结果不变，将内容变量（实现上相当于原来的隐变量）和属性变量共同作为网络的输入送入到生成器中。属性回归器的作用是监督生成器的样本：生成器的训练目标不再仅仅是“骗过”判别器，还要满足生成样本的属性值满足输入的属性code。总之，在已有属性回归器的前提下，为了将任意的unconditional GANs改造成可以控制属性的ACGAN，仅需要做以下两点：1. 将生成器的输入扩充为隐变量和属性变量 2. 计算生成器的损失时加上属性一致性损失。
+\subsection{属性一致性约束}
+我们的ACGAN可以基于任意的非条件生成式对抗网络实现。ACGAN由3部分构成：生成器、判别器和属性回归器。我们将内容变量（高斯噪声，实现上相当于原来的隐变量）和属性变量共同作为网络的输入送入到生成器中，判别器的结构保持不变。属性回归器的作用是监督生成器的样本：生成器的训练目标不再仅仅是“骗过”判别器，还要满足生成样本的属性值与输入的属性变量一致。总之，在已有属性回归器的前提下，为了将任意的非条件生成式对抗网络改造成可以控制属性的ACGAN，仅需要做以下两点：1. 将生成器的输入扩充为隐变量和属性变量 2. 计算生成器的损失时加上属性一致性损失。
 % \subsubsection{Overview} Our ACGAN can be implemented based on any unconditional GAN and is composed of 3 parts: a generator $G$, a discriminator $D$, and a pretrained attribute regressor $R$. Leaving the discriminator unchanged, the attribute code $\alpha$ and content code \emph{z} are fed into the generator as the inputs. $R$ is utilized to supervise the attributes of generated samples via attribute regression loss. The objective of the generator is no longer just to "deceive" the discriminator, but also to satisfy the attribute consistency, i.e., the attribute of the generated samples equal to the input attribute code. In short, in order to transform any unconditional GAN into ACGAN, only two changes need to be implemented: (1) decomposing the input values into content values and attribute values; (2) adding attribute regression loss.
 
 \subsubsection{属性一致性损失}
-ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样本的属性受到属性回归器的约束。这是通过属性一致性损失实现的。
+ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样本的属性受到属性回归器的约束，这正是通过属性一致性损失（Attribute Consistency Loss）实现的。
 % The key point to control the attributes of the generated samples is that the attributes of the generated samples are constrained by the attribute regressor in the training phase. This is achieved through minimizing $l_2$-norm between input attribute code $\alpha$ and predicted attribute $R(G(z|\alpha))$.% i.e., $\|R(G(z|\alpha)) - \alpha\|_2$.
 % % \begin{equation}
 % %      L_{Reg} =  \mathbb{E}_{z \sim \mathcal{N}(0,1), a \sim \mathcal{U}(0,1)}\|R(G(z|a)) - a\|_2
@@ -106,7 +101,7 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 % Considering that each pseudo label in $\hat{\mathcal{A}}$ corresponds to a real image in $\mathcal{D}$, the first strategy can guarantee $\alpha$ is reasonable.
 % Attribute-consistent loss can be formulated as:
 \begin{equation}
-   \mathcal{L}_{Reg}(G, R)  =  \mathbb{E}_{z \sim \mathcal{N}(0,1), \alpha \sim \hat{\mathcal{A}}}\|R(G(z|\alpha)) - \alpha\|_2.
+   \mathcal{L}_{Reg}(G, R)  =  \mathbb{E}_{z \sim \mathcal{N}(0,1), \alpha \sim \hat{\mathcal{A}}}\|R(G(z|\alpha)) - \alpha\|_2
 \end{equation}
 
 至于第二种策略，我们可能会从 $\mathcal{U}(0,1)$ 中采样不合理的 $\alpha$，但是与第一种相比，这种采样策略有两个不可或缺的优势：
@@ -124,7 +119,7 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 
 % Generally, sampling $\alpha$ from $\mathcal{U}(0,1)$ is a more universal strategy. Attribute regression loss can be formulated as:
 \begin{equation}
-     \mathcal{L}_{cons}(G, R)  =  \mathbb{E}_{z \sim \mathcal{N}(0,1), \alpha \sim \mathcal{U}(0,1)}\|R(G(z|\alpha)) - \alpha\|_2.
+     \mathcal{L}_{cons}(G, R)  =  \mathbb{E}_{z \sim \mathcal{N}(0,1), \alpha \sim \mathcal{U}(0,1)}\|R(G(z|\alpha)) - \alpha\|_2
 \end{equation}
 
 % LGAN是
@@ -153,7 +148,7 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 \STATE 采样 $z \sim \mathcal{N}(0,1), \alpha \sim \mathcal{U}(0,1)$;\\
     \STATE 生成 $I=G([z,\alpha])$;\\
     \STATE 计算 $\hat{\alpha} = R(I)$;\\
-    \STATE 计算 $L=\mathcal{L}_{GAN}(G,D) + \mathcal{L}_{Reg}(\alpha, \hat{\alpha})$;\\
+    \STATE 计算 $L=\mathcal{L}_{GAN}(G,D) +  \lambda \mathcal{L}_{Cons}(\alpha, \hat{\alpha})$;\\
     \STATE 更新 $\theta_G = \mu_G * \partial{L}/\partial{\theta_G}$;\\
     \STATE 更新 $\theta_D = \mu_D * \partial{L_{GAN}}/\partial{\theta_D}$;
 \ENDWHILE
@@ -169,19 +164,19 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 % We conduct experiments on face synthesis and natural scene synthesis. In this section, we will introduce base model and architecture of $C$ and $R$, then describe implementation details in these two scenarios separately.
 
 \subsubsection{基本模型} 
-我们基于轻量级 GAN~\cite{lwgan} 和 StyleGAN2~\cite{stylegan2} 实现了ACGAN。属性变量$\alpha$ 分别拼接在 轻量级 GAN 的 $z$ 和 StyleGAN2-mini 的 $w$ 后面。
-% We implement the proposed ACGAN based on light-weight GAN~\cite{lwgan} and StyleGAN2~\cite{stylegan2}. Due to the heavily computing cost of Stylegan2, we halve number of channels of convolution layer in each style block of Stylegan2. We term this more light weight Stylegan2 as Stylegan2-mini, which is adopted as the basic generative model  in the face synthesis experiments. The attribute code $\alpha$ is concatenated with $z$ for light-weight GAN and $w$ for StyleGAN2-mini.
+对于人脸合成场景，我们使用StyleGAN2~\cite{stylegan2} 实现了ACGAN；对于自然场景合成场景，我们则使用了轻量级 GAN~\cite{lwgan}。属性变量$\alpha$ 分别拼接在 轻量级 GAN 的 $z$ 和 StyleGAN2 的 $w$ 后面。
+% We implement the proposed ACGAN based on light-weight GAN~\cite{lwgan} and StyleGAN2~\cite{stylegan2}. Due to the heavily computing cost of Stylegan2, we halve number of channels of convolution layer in each style block of Stylegan2. We term this more light weight Stylegan2 as Stylegan2-mini, which is adopted as the basic generative model  in the face synthesis experiments. The attribute code $\alpha$ is concatenated with $z$ for light-weight GAN and $w$ for StyleGAN2.
 
 \subsubsection{$C$和$R$的结构}
-我们采用 ResNet-50~\cite{resnet} 作为分类器 $C$ 和回归器 $R$ 的骨干网络，并且用维度为$N$的全连接层替换最后一个全连接层，这里的$N$对应属性类别的数量。 我们将 $sigmoid$ 与属性分类器 $C$分来表示，因此 $C$ 和 $R$ 共享相同的网络结构。 我们在 CelebA 数据集上训练分类器 $C$，达到 $96.05\%$ 的分类准确度。在 $\hat{\mathcal{A}}$ 上训练的回归器在验证集上的最小均方误差（MSE）达到 $0.0337$ ，在自然场景数据集~\cite{scenedataset} 上训练的回归器的MSE达到 $0.0142$。
+我们采用 ResNet-50~\cite{resnet} 作为分类器 $C$ 和回归器 $R$ 的骨干网络，并且用维度为$N$的全连接层替换最后一个全连接层，这里的$N$为属性类别的数量，例如在CelebA数据集~\cite{celeba}数据集中$N=40$。 除$C$包含最后一层$sigmoid$外， $C$ 和 $R$ 共享相同的网络结构。 我们在 CelebA 数据集上训练分类器 $C$，达到 $96.05\%$ 的分类准确度。在 $\hat{\mathcal{A}}$ 上训练的回归器在验证集上的最小均方误差（MSE）达到 $0.0337$ ，在自然场景数据集~\cite{scenedataset} 上训练的回归器的MSE达到 $0.0142$。
 % We adopt ResNet-50~\cite{resnet} as the backbone architecture of classifier $C$ and regressor $R$. The last fully connected layer is replaced by a new one with the dimension of $N$ corresponding to attribute categories. We isolate $sigmoid$ from attribute classifier $C$, so $C$ and $R$ can share the same network architecture. We train the classifier $C$ on CelebA dataset, which achieves $96.05\%$ of classification accuracy. The regressor trained on $\hat{\mathcal{A}}$ reaches validation MSE of $0.0337$ and the regressor trained on Transient Attribute Database~\cite{scenedataset} and reaches validation MSE of $0.0142$.
 
 \subsubsection{数据集}
-对于人脸合成，人脸属性知识是从 CelebA 数据集~\cite{celeba} 中学习的，这是一个大规模的人脸属性数据集，由超过 200K 的名人照片组成。每张图像有 40 种属性标注，分辨率为 $178\times218$。 我们的 ACGAN 模型在 Flickr-Faces-HQ (FFHQ)~\cite{stylegan} 数据集上进行训练，该数据集由$70,000$的高质量图像组成，分辨率为$1024\times1024$，并且在年龄、种族和图像背景方面包含相当大的变化。 FFHQ训练的模型能够生成更真实的图像。
+对于人脸合成，人脸属性知识是从 CelebA 数据集~\cite{celeba} 中学习的，这是一个大规模的人脸属性数据集，由超过 20万张名人照片组成。每张图像有 40 种属性标注，分辨率为 $178\times218$。 我们的 ACGAN 模型在 Flickr-Faces-HQ (FFHQ)~\cite{stylegan} 数据集上进行训练，该数据集由$70,000$的高质量图像组成，分辨率为$1024\times1024$，并且在年龄、种族和图像背景方面包含相当大的变化。 FFHQ训练的模型能够生成更真实的图像。
 % For face synthesis, the facial attribute knowledge is learned from CelebA dataset~\cite{celeba}, which is a large-scale face attributes dataset consists of more than 200K celebrity images, each with 40 attribute annotations at $178\times218$ resolution. Our ACGAN model is optimized on Flickr-Faces-HQ (FFHQ)~\cite{stylegan} dataset, which consists of $70,000$ high-quality images at $1024\times1024$ resolution and contains considerable variation in terms of age, ethnicity and image background. FFHQ enables the model to generate high-fidelity images. 
 
 % We select all 40 attributes for training as only a few attributes are mutually entangled.
-对于自然场景合成，回归器 $R$在 Transient Attribute Database~\cite{scenedataset} 上训练。 由于该数据集具有介于 $0$ 和 $1$ 之间的连续属性值，因此没有必要训练属性分类器 $C$。 受\cite{iclr2021}的启发，我们从Place数据集~\cite{place}和SUN数据集~\cite{sun}中选择了40,726张与自然场景相关的图片来扩展Transient Attribute数据集，并利用这个增强的自然场景数据集进行优化我们的ACGAN模型。
+对于自然场景合成，回归器 $R$在 Transient Attribute Database~\cite{scenedataset} 上训练。 由于该数据集具有介于 $0$ 和 $1$ 之间的连续属性值，因此没有必要训练属性分类器 $C$。 受EnjoyEditing~\cite{iclr2021}的启发，我们从Place数据集~\cite{place}和SUN数据集~\cite{sun}中选择了40,726张与自然场景相关的图片来扩展Transient Attribute数据集，并利用这个增强的自然场景数据集进行优化我们的ACGAN模型。
 % For natural scene synthesis, the natural attribute knowledge is learned from Transient Attribute Database~\cite{scenedataset} for regressor $R$. Since this dataset has continuous attribute values between 0 and 1, it is unnecessary to train an attribute classifier $C$. Motivated by \cite{iclr2021}, we selected 40,726 pictures related to natural scenes from Place dataset~\cite{place} and SUN dataset~\cite{sun} to expand the Transient Attribute dataset, and utilized this augmented natural scene dataset to optimize our ACGAN model. 
 
 % Unfortunately, lots of attributes are tangled, e.g., "daylight" and "night", "summer" and "winter". To avoid problem of tangled attributes discussed in Sec.\ref{section-31}, we select 5 attributes: "night", "clouds", "fog", "winter" and "sunny".
@@ -190,17 +185,17 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 我们设置超参数 $\lambda$ 来表示用于平衡属性回归损失的所选属性的数量，即人脸合成下$\lambda=40$，自然场景合成下$\lambda=5$。 $C$ 和 $R$ 均由 Adam 优化器训练，学习率为 0.0001。 我们使用单张 Titan RTX 进行所有实验。
 % We set hyperparameter $\lambda$ to denote the number of selected attributes for balancing attribute regression loss, i.e., $\lambda=40$ for face synthesis and $\lambda=5$ for natural scene synthesis.  Both $C$ and $R$ are trained by an Adam optimizer with a learning rate of 0.0001. We use a single Titan RTX for all experiments.
 
-\subsection{人脸合成}
+\subsection{人脸属性编辑相关实验}
 为了表示方便，我们统一使用+\{属性名\}表示增强该属性，相对应的，-\{属性名\}表示减弱该属性。
 
 \subsubsection{定性比较}
-在本节我们将定性评测单种属性和多种属性的编辑效果，并将我们的方法与两种有监督隐空间编辑方法进行比较：InterFaceGAN~\cite{interfacegan} 和 EnjoyEditing~\cite{iclr2021}。 截止文本撰写位置，EnjoyEditing的官方代码还没有发布，感谢他们简洁的框架，我们重新实现了他们的工作。为了公平地与这两种方法标胶，我们采用 \cite{image2stylegan} 将一张真实图像编码到 StyleGAN2-mini 的隐空间中，以此比较同一图像上的属性编辑性能。
-% We evaluate the attribute controllability on single and multiple attributes, and compare our method with two advanced supervised methods: InterFaceGAN~\cite{interfacegan} and EnjoyEditing~\cite{iclr2021}. Since the official code of EnjoyEditing is not released yet, we re-implement it by ourselves thanks to their concise framework. To fairly compare the performance of the two methods, we adopt \cite{image2stylegan} to encode one real image into the latent space of StyleGAN2-mini, and compare the attribute editing performance on the same image.
+在本节我们将定性评测单种属性和多种属性的编辑效果，并将我们的方法与两种有监督隐空间编辑方法进行比较：InterFaceGAN~\cite{interfacegan} 和 EnjoyEditing~\cite{iclr2021}。 截止文本撰写为止，EnjoyEditing的官方代码还没有发布，感谢他们简洁的框架，我们重新实现了他们的工作。为了公平地与这两种方法标胶，我们采用逆映射~\cite{image2stylegan}的方法将一张真实图像编码到 StyleGAN2 的隐空间中，以此比较同一图像上的属性编辑性能。
+% We evaluate the attribute controllability on single and multiple attributes, and compare our method with two advanced supervised methods: InterFaceGAN~\cite{interfacegan} and EnjoyEditing~\cite{iclr2021}. Since the official code of EnjoyEditing is not released yet, we re-implement it by ourselves thanks to their concise framework. To fairly compare the performance of the two methods, we adopt \cite{image2stylegan} to encode one real image into the latent space of StyleGAN2, and compare the attribute editing performance on the same image.
 
-图~\ref{fig:face} 显示了单属性编辑（b，c）和多属性编辑（d，e，f）的结果。 对于添加刘海，我们的 ACGAN 是唯一成功添加刘海的方法，而 InterFaceGAN 和 EnjoyEditing 只是将发际线向前移动了一点。 为了加胖，我们的 ACGAN 实现了最精确和最清晰的编辑结果。 InterFaceGAN的结果比原图要老，而EnjoyEditing的结果在增强胖属性方面不明显。
+图~\ref{fig:face} 显示了单属性编辑（b，c）和多属性编辑（d，e，f）的结果，Inversion表示逆映射方法得到的生成图像。 对于添加刘海，我们的 ACGAN 是唯一成功添加刘海的方法，而 InterFaceGAN 和 EnjoyEditing 只是将发际线向前移动了一点。 为了加胖，我们的 ACGAN 实现了最精确和最清晰的编辑结果。 InterFaceGAN的结果比原图要老，而EnjoyEditing的结果在增强胖属性方面不明显。
 % Fig.~\ref{fig:face} shows results of single attribute editing (b, c) and multi attributes editing (d, e, f). For adding bangs, our ACGAN is the only method that adds bangs successfully, while InterFaceGAN and EnjoyEditing just move Hairline a little forward. For adding chubby, our ACGAN achieves most precised and distangled editing result. The result of InterFaceGAN is older than the original image, and the result of EnjoyEditing is not obvious at adding chubby.
 
-对于多属性编辑评估，我们的 ACGAN 可以在不改变图像身份的情况下同时修改多种属性，如图~\ref{fig:face}。从编辑$1$种属性到$7$种属性，我们的ACGAN（第一行）展示出了非常精确的编辑效果。这$7$种属性包括：笑、肥胖、黑发、金发、口红、大鼻子 和 白皮肤。相比之下，基线无法添加某些属性或更改应保留的不相关属性。 InterfaceGAN 在图~\ref{fig:face}(c) 和 (d) 中涉及多属性编辑时对倒置图像没有做太多改变。 当我们减少 \textit{blond hair} 属性时，EnjoyEditing 显然会将头发颜色更改为更金发。 纹理细节也变得更加模糊，从而导致更差的定性外观，如图~\ref{fig:face}(d) 所示。
+对于多属性编辑评估，我们的 ACGAN 可以在不改变图像身份的情况下同时修改多种属性，如图~\ref{fig:face}所示。从编辑$1$种属性到$7$种属性，我们的ACGAN（第一行）展示出了非常精确的编辑效果。这$7$种属性包括：笑、肥胖、黑发、金发、口红、大鼻子 和 白皮肤。相比之下，基线无法添加某些属性或更改应保留的不相关属性。 InterfaceGAN 在图~\ref{fig:face}(c) 和 (d) 中涉及多属性编辑时对逆映射图像（Inversion）没有做太多改变。 当我们-棕头发时，EnjoyEditing 显然会将头发颜色变得更突出金色，纹理细节也变得更加模糊，从而导致人物整体外观更差，如图~\ref{fig:face}(d) 所示。
 % For multiple attributes editing evaluation, our ACGAN can modify multiple attributes simultaneously without changing the image identity, as shown in Fig.~\ref{fig:face}. In contrast, the baselines fail to add certain attributes or change irrelevant attributes that should be preserved. InterfaceGAN does not make much changes to the inverted image when it comes to multiple attribute editing in Fig.~\ref{fig:face}(c) and (d). EnjoyEditing obviously changes hair color to be blonder when we decrease the \textit{blond hair} attribute. The texture details also become more blurred, which leads to a worse qualitative appearance as shown in Fig.~\ref{fig:face}(d).
 
 \begin{figure}[!t]
@@ -299,9 +294,9 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 
 
 \subsubsection{所有属性的编辑}
-以前的监督方向搜索方法仅能在CelebA 数据集的少数 ($<$4) 种属性起作用。我们的方法在这方面取得了很大进展，能够编辑生成样本的所有 40 种属性。具体来说，我们将所有属性值都初始化为 $0.5$，对于每种属性编辑，只需将该属性值修改为1，同时保持其他属性值和原始内容值不变。 图~\ref{fig:40Attributes}展示了CelebA 数据集中所有 40 种属性的编辑样本。原始图像是在所有属性值均等于 0.5 下生成的。 对于每种属性编辑，我们将该属性值增加到 1，并保持内容值和其他属性值不变。
-这证明了所提出的属性正交空间的有效性，我们的模型能够很好地解耦大多数属性，除了四个“穿戴性质”的属性：戴项链、戴领带、戴耳环和戴着帽子。
-在分析这些穿戴属性的比例时，我们发现对这些属性的编辑失败并不是由数量引起的。例如，作为可穿戴属性，眼镜在数量比例上可与其他四种可穿戴属性相媲美，但呈现出合理的结果。这可能是因为眼镜在面部的大小和位置是相对固定的，而其他可穿戴项目则不是，这使得眼镜属性编辑比其他可穿戴属性更容易学习。
+以前的有监督的隐空间编辑方法仅能在CelebA 数据集的少数 ($<$4) 种属性起作用。我们的方法在这方面取得了很大进展，能够编辑生成样本的所有 40 种属性。具体的做法是，我们将所有属性值都初始化为 $0.5$，对于每种属性编辑，只需将该属性值修改为1，同时保持其他属性值和原始内容值不变。 图~\ref{fig:40Attributes}展示了CelebA 数据集中所有 40 种属性的编辑样本。
+我们的模型能够很好地解耦大多数属性，除了四个“穿戴性质”的属性：戴项链、戴领带、戴耳环和戴着帽子，这证明了所提出的正交属性空间的有效性，
+在分析这些穿戴属性的比例时，我们发现对这些属性的编辑失败并不是由数量引起的。例如，同为穿戴性质属性，眼镜在数量比例上可与其他四种穿戴性质接近，但属性编辑的结果却合理的多。这可能是因为眼镜在面部的大小和位置是相对固定的，而其他穿戴性质属性则不是，这使得“眼镜”的属性编辑比其他穿戴性质属性的编辑更容易学习。
 % Previous supervised direction searching methods are only compatible with few ($<$ 4) attributes of the CelebA dataset. Our method has made great progress in this regard, being able to edit all the 40 attributes of the generated samples. Specifically, all the attribute values are initialized to $0.5$. For each attribute editing, we simply modify the editing attribute value to 1 while keep other attribute values and original content values unchanged. Fig.~\ref{fig:40Attributes} demonstrates the effectiveness of the proposed attribute orthogonal space, which empowers our model to well disentangle most attributes except for four "\textit{wearing}" attribute: wearing necklace, wearing necktie, wearing earrings and wearing hat.
 % While analyzing the proportion of these wearable attributes, we found that the failure editing on these attributes is not caused by quantity. For instance, as a wearable attribute, eyeglasses are comparable to the other four wearable attributes in the quantity proportion but present reasonable results. This might because the size and the position of the eyeglasses in the face are relatively fixed, while the other wearable items are not, which makes the eyeglasses attribute editing is easier to learn than other wearable attributes.
 
@@ -315,10 +310,10 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 \end{figure}
 
 \subsubsection{$C$和$R$的分析}
-我们将 $[0,1]$ 分成 20 个相等的间隔，并在 FFHQ 数据集上绘制属性 \textit{smiling} 得分的频率直方图。 如图~\ref{fig:quantization}(c)所示，sigmoid会将属性分类器$C$的输出推向接近0或1。$\mathcal{A}$训练的属性回归器也生成大部分预测值接近 到 0 或 1，如图所示。~\ref{fig:quantization}(d)。 相反，我们由 $\hat{\mathcal{A}}$ 训练的属性回归器 $R$ 产生了更合理的从 0 到 1 的连续值，如图~\ref{fig:quantization}(e)。 
+我们将 $[0,1]$ 分成 20 个相等的间隔，并在 FFHQ 数据集上绘制属性 \textit{smiling} 得分的频率直方图。 如图~\ref{fig:quantization}(c)所示，sigmoid会将属性分类器$C$的输出推向接近0或1。$\mathcal{A}$训练的属性回归器也生成大部分预测值接近 到 0 或 1，如图~\ref{fig:quantization}(d)所示。相反，我们由 $\hat{\mathcal{A}}$ 训练的属性回归器 $R$ 产生了如图~\ref{fig:quantization}(e)所示的更合理的从 0 到 1 的连续值。 
 % We divide $[0,1]$ into 20 equal intervals and plot frequency histogram of attribute \textit{smiling} score on FFHQ dataset. As shown in Fig.~\ref{fig:quantization}(c), sigmoid will push output of attribute classifier $C$ close to 0 or 1. Attribute regressor trained by $\mathcal{A}$ also generates most prediction values close to 0 or 1 as demonstrated in Fig.~\ref{fig:quantization}(d). On the contrary, our attribute regressor $R$ trained by $\hat{\mathcal{A}}$ produces more reasonable continuous values from 0 to 1 as in Fig.~\ref{fig:quantization}(e). We provide more analysis in the supplementary material.
 
-\subsection{自然风景合成}
+\subsection{自然风景属性编辑相关实验}
 
 \subsubsection{定性比较}
 在 \cite{iclr2021} 之后，我们将我们的 ACGAN 与图像到图像方法 CycleGAN~\cite{cyclegan}、RelGAN~\cite{relgan} 和 DRIT++~\cite{drit++} 进行比较，如图~\ref{fig:sceneComparison}。 我们根据属性值将 Transient Attributes 数据集分为两部分：\textbf{A} 部分（属性值 $>$ 0.5）和 \textbf{B} 部分（属性值 $\leq$ 0.5）。 这些方法是通过从 \textbf{A} 部分到 \textbf{B} 部分的转换图像从头开始训练的，反之亦然。
@@ -328,9 +323,9 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 
 \begin{figure}[t]
     \begin{center}
-         \includegraphics[width=0.7\linewidth]{figures/ACGAN/Scenecomparison.pdf}
+         \includegraphics[width=0.5\textwidth]{figures/ACGAN/Scenecomparison.pdf}
     \end{center}
-    \caption{自然场景单属性对比}
+    \caption{自然场景单属性编辑对比}
     \label{fig:sceneComparison}
 \end{figure}
 
@@ -347,11 +342,15 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 \end{figure}
 
 \subsubsection{定量比较}
-为了定量评估我们的 ACGAN 在控制自然场景合成的属性方面，我们使用我们的 ACGAN 为每种属性生成 $5,000$ 的图像对 $(I_-,I_+)$。 $I_-$ 表示该属性为“关闭”或“负”，反之亦然。 我们在由属性回归器 $R$ 计算的 $(I_-,I_+)$ 之间定义属性增益：$R(I_+)-R(I_-)$。 属性增益越大，该方法控制属性的能力越强。 为了与图像空间转换方法进行比较，我们使用 DRIT++ 和 RelGAN 生成额外的 $I_+$ 给定输入 $I_-$ 并计算它们之间的属性增益。从表~\ref{tb:attrbute_gain}展示的各个属性的增益对比中，可以看到我们的 ACGAN 的属性增益远高于其他方法，这证明我们的 ACGAN 对控制属性的能力最强。
+为了定量评估我们的 ACGAN 在控制自然场景合成的属性方面，我们使用我们的 ACGAN 为每种属性生成 $5,000$ 的图像对 $(I_-,I_+)$。 $I_-$ 表示该属性为“关闭”或“负”，反之亦然。 我们在由属性回归器 $R$ 计算的 $(I_-,I_+)$ 之间定义属性增益（Attribute Gain）$AG$：
+\begin{equation}
+     AG = R(I_+)-R(I_-)。
+\end{equation}
+属性增益越大，该方法控制属性的能力越强。 为了与图像空间转换方法进行比较，我们使用 DRIT++ 和 RelGAN 生成额外的 $I_+$ 给定输入 $I_-$ 并计算它们之间的属性增益。从表~\ref{tb:attrbute_gain}展示的各个属性的增益对比中，可以看到我们的 ACGAN 的属性增益远高于其他方法，这证明我们的 ACGAN 对控制属性的能力最强。
 % To quantitatively evaluate our ACGAN on controlling attributes for natural scene synthesis, we use our ACGAN to generate $5,000$ image pairs $(I_-,I_+)$ for each attribute. $I_-$ means this attribute is "off" or "negative" and vice versa. We define attribute gain between $(I_-,I_+)$ computed by attribute regressor $R$ : attribute gain=$R(I_+)-R(I_-)$. The larger the attribute gain, the stronger the method is in controlling attributes. To compare with image-space translation methods, we use DRIT++ and RelGAN to generate extra $I_+$ given input $I_-$ and compute attribute gain between them. The results are shown in Table~\ref{tb:attrbute_gain}. The attribute gain of our ACGAN is much higher than the other methods, which proves that our ACGAN has the strongest power over controlling attributes. 
 
 \begin{table}[!t]
-    \caption{我们的 ACGAN 的属性增益远高于其他方法，这证明我们的 ACGAN 对控制属性的能力最强。}
+    \caption{属性增益对比}
     % \caption{The attribute gain of our ACGAN is much higher than the other methods, which proves that our ACGAN has the strongest power over controlling attributes.}
     \renewcommand\arraystretch{0.8}
     \begin{center}
@@ -383,7 +382,7 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=1\linewidth]{figures/ACGAN/cover.pdf}
+    \includegraphics[width=0.8\textwidth]{figures/ACGAN/cover.pdf}
     % \caption{Accumulative attribute editing. We gradually enhance a certain attribute(age, white hair, etc.) from left to right in the portraits. Benefiting from disentanglement between attributes, the editing results are precise and smooth. Zoom in for better view.}
     \caption{人脸叠加属性编辑图}
     \label{fig:multiAtt}  
@@ -396,7 +395,7 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 
 \begin{figure}[!t]
      \begin{center}
-          \includegraphics[width=1\linewidth]{figures/ACGAN//male.pdf}
+          \includegraphics[width=0.8\textwidth]{figures/ACGAN//male.pdf}
      \end{center}
      \caption{男性人脸叠加属性编辑图}
      \label{fig:male}
@@ -404,7 +403,7 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 
 \begin{figure}[!t]
      \begin{center}
-          \includegraphics[width=0.95\linewidth]{figures/ACGAN//female.pdf}
+          \includegraphics[width=0.8\textwidth]{figures/ACGAN//female.pdf}
      \end{center}
      \caption{女性人脸叠加属性编辑图}
      \label{fig:female}
@@ -412,20 +411,20 @@ ACGAN能够控制生成样本属性的关键之处在于在训练阶段生成样
 
 
 \subsection{自然场景复合属性编辑}
-我们在图~\ref{fig:sceneMulti} 中展示了ACGAN对自然场景图像进行复合属性（两种属性）编辑的结果。图~\ref{fig:sceneMulti}(a)显示了云和雾的编辑结果，左上图既没有雾也没有云，向下的图片倾向于产生更多的云和更少的雾，右边的图片往往会产生更多的雾和更少的云；右下图则同时包含较多云和雾。就属性解耦来说，图~\ref{fig:sceneMulti}(b) 和 图~\ref{fig:sceneMulti}(c)中云彩与冬天、云彩与。 该实验证明了我们的方法在解耦自然场景属性方面的优越性。
+我们在图~\ref{fig:sceneMulti} 中展示了ACGAN对自然场景图像进行复合属性（两种属性）编辑的结果。图~\ref{fig:sceneMulti}（a）显示了云和雾的编辑结果，位于（a）左上角的图片既没有雾也没有云，（a）下边的图片包含更多的云和较少的雾，（a）右边的图片往往会产生更多的雾和较少的云；（a）右下角的图片则同时包含较多云和雾。图~\ref{fig:sceneMulti}（b）和（c）遵循类似的规律。就属性解耦来说，三种属性组合：云与雾、云与冬天（季节变化）、云与晴天（天气变化），均实现了肉眼可见的属性解耦。 该实验进一步证明了我们的方法在解耦自然场景属性方面的优越性。
 % We present additional results of multiple attributes editing on natural scene images in Fig.~\ref{fig:sceneMulti}. The generated images generated by our method are manipulated on two attributes simultaneously. Fig.~\ref{fig:sceneMulti}(a) shows the results of editing \textit{Clouds} and \textit{Fog}, the top left picture shows neither fog nor clouds, the downwards pictures tend to generate more clouds and less fog, the rightward pictures tend to generate more fog and less clouds; the bottom right picture contains both clouds and fog. Fig.~\ref{fig:sceneMulti}(b) and Fig.~\ref{fig:sceneMulti}(c) show similar performance in disentangling \textit{Clouds} with \textit{Winter} and \textit{Sunny}. This experiment demonstrates the advanced performance of our method in disentangling natural scene attributes. 
 
 \begin{figure}[!ht]
 	\begin{center}
-		 \includegraphics[width=0.9\linewidth]{figures/ACGAN/sceneMulti.pdf}
+		 \includegraphics[width=0.8\textwidth]{figures/ACGAN/sceneMulti.pdf}
 	\end{center}
 	\caption{自然场景复合属性编辑图}
 	\label{fig:sceneMulti}
 \end{figure}
 
 \section{本章总结}
-在这项工作中，我们提出了一种用于图像属性编辑的语义可控生成式对抗网络。 为了更好地将每种属性方向与其他方向解耦，我们将属性空间与内容空间隔离，并将其投影到正交空间，并提出了一种属性一致的损失来约束连续的属性一致性。为了将我们的方法扩展到所有属性数据集，我们进一步提出了一种属性量化策略，将二进制属性标签量化为连续值。 实验证明我们的方法可以同时且连续地编辑具有高保真度和语义解开的多种属性。
+在这项工作中，为了实现语义解耦的图像编辑，我们提出了一种输入属性与生成图像属性一致的生成式对抗网络ACGAN。 为了在理论上保证每种属性方向与其他方向解耦，我们将属性空间与内容空间隔离，将属性空间投影到正交空间，并提出了属性一致损失来约束输入属性与生成图像属性的属性一致性。为了将我们的方法扩展到所有带有属性标注的数据集，我们进一步提出了一种属性量化策略，将二进制属性标签量化为连续值。 实验证明我们的方法可以在保持图片身份信息不变的前提下，同时且连续地编辑多种属性。
 % In this work, we propose a semantic controllable GAN for image attribute editing. To better disentangle each attribute direction from other directions, we isolate an attribute space from the latent space and project it to the orthogonal space. An attribute-consistent loss is proposed to constrain the continuous attribute consistency. To extend our approach to all the attribute datasets, we further propose an attribute quantification strategy to quantify binary attribute labels to continuous values. Experiments prove our method can simultaneously and continuously edit multiple attributes with high fidelity and semantic disentanglement. 
 
-虽然我们提出的 ACGAN 与其他最先进的技术相比实现了卓越的性能，但存在一些局限性。 例如，相似的属性可能会导致回归错误。 例如，灰色头发和苍白皮肤具有相似的颜色，这可能导致这些属性难以解开。 此外，真实图像编辑取决于 GAN 逆映射（GAN inversion）的结果，这通常需要复杂的 GAN 架构。 我们使用过的 StyleGAN2-mini 仍然需要大量的时间。 未来，我们将探索更高效的回归器和 GAN 架构。
-% While our proposed ACGAN achieves superior performance compared to other state-of-the-arts, there are several limitations. For instance, similar attributes may lead to regression errors. For example, Gray Hair and Pale Skin have similar colors, which may cause these attributes hard to disentangle. Besides, real image edits depend on the result of GAN inversion, which most often requires complex GAN architecture. Our used StyleGAN2-mini still takes huge time consumption. In the future, we would explore more efﬁcient regressor and GAN architecture.
+虽然我们提出的 ACGAN 与其他最先进的方法相比实现了更佳的性能，但仍存在一些局限性。 例如，属性的相似性（如灰色头发和苍白皮肤具有相似的颜色）可能导致属性难以完全解耦。 此外，真实图像编辑取决于 GAN 逆映射（GAN inversion）的结果，这通常需要复杂的 GAN 架构， 而我们采用的基本模型 StyleGAN2 仍然需要大量的时间进行训练。 未来，我们将探索更高效的回归器和 GAN 架构。
+% While our proposed ACGAN achieves superior performance compared to other state-of-the-arts, there are several limitations. For instance, similar attributes may lead to regression errors. For example, Gray Hair and Pale Skin have similar colors, which may cause these attributes hard to disentangle. Besides, real image edits depend on the result of GAN inversion, which most often requires complex GAN architecture. Our used StyleGAN2 still takes huge time consumption. In the future, we would explore more efﬁcient regressor and GAN architecture.
